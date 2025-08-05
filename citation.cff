@@ -1,0 +1,27 @@
+message: Sistema TecSolutions para gestão de serviços voltados para Tecnologia.
+title: Sistema TecSolutions
+abstract: |
+  O projeto "Sistema TecSolutions" é uma iniciativa de extensão universitária desenvolvida por alunos do curso de Análise e Desenvolvimento de Sistemas da PUC Minas, com o objetivo de criar uma plataforma online para a gestão de serviços relacionados à tecnologia. A plataforma visa facilitar a interação entre prestadores de serviços e clientes, promovendo uma experiência colaborativa e eficiente. O sistema é fundamentado em princípios pedagógicos sólidos e utiliza tecnologias modernas para garantir uma interface amigável e funcional.
+license: CC0-1.0
+cff-version: 1.2
+authors:
+  - family-names: de Oliveira Florencio
+    given-names: Vagner
+  - name-suffix: Parceiro/Product Owner
+    family-names: de Oliveira
+    given-names: Marcos
+keywords:
+  - "Projeto de Extensão"
+  - "Desenvolvimento Web"
+  - "Sistema de Gestão"
+  - "Serviços de Tecnologia"
+  - "Suporte Técnico"
+  - "Plataforma Online"
+  - "Propostas de Melhoria"
+  - "Tecnologia Educacional"
+  - "Sistema TecSolutions"
+  - "Desenvolvimento de um Sistema Sociotécnico"
+repository-code: https://github.com/v4gn32/tecsolutions.git
+version: 1.0.0
+date-released: 2025-10-01
+date-updated: 2025-10-23

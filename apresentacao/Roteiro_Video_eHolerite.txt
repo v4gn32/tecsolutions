@@ -1,0 +1,99 @@
+Slide 1: Capa
+Duração: 5 segundos
+Texto:
+eHolerite – Sistema de Gestão de Holerites Online
+Agilidade e segurança na distribuição de documentos corporativos
+Desenvolvedor: Vagner de Oliveira Florencio
+
+---
+Slide 2: Introdução
+Duração: 5 segundos
+Texto:
+O eHolerite é um sistema web que permite empresas organizarem e disponibilizarem holerites de forma digital, segura e automatizada.
+
+---
+Slide 3: Problema
+Duração: 5 segundos
+Texto:
+• Envio manual de holerites é demorado
+• Risco de perda de documentos
+• Baixa rastreabilidade
+• RH sobrecarregado
+
+---
+Slide 4: Solução
+Duração: 5 segundos
+Texto:
+• Upload em massa de PDFs
+• Distribuição automática por usuário
+• Login seguro
+• Consulta por mês/ano
+• Notificação por e-mail
+
+---
+Slide 5: Funcionalidades
+Duração: 5 segundos
+Texto:
+• Cadastro de usuários
+• Upload inteligente
+• Filtros por data
+• Notificações automáticas
+• Armazenamento em nuvem
+
+---
+Slide 6: Tecnologias
+Duração: 5 segundos
+Texto:
+• React, Tailwind CSS, Vite
+• Node.js, Express
+• MongoDB, AWS S3
+• Render, Nodemailer
+
+---
+Slide 7: Público-Alvo
+Duração: 5 segundos
+Texto:
+• Pequenas e médias empresas
+• RHs
+• Escritórios contábeis
+• Organizações com documentos recorrentes
+
+---
+Slide 8: Benefícios
+Duração: 5 segundos
+Texto:
+• Economia de tempo
+• Acesso seguro
+• Redução de papel
+• Histórico organizado
+• Rastreabilidade
+
+---
+Slide 9: Fluxo
+Duração: 5 segundos
+Texto:
+1. Admin faz login
+2. Upload em massa
+3. Sistema separa por usuário
+4. Notificações enviadas
+5. Colaboradores acessam
+
+---
+Slide 10: Próximos Passos
+Duração: 5 segundos
+Texto:
+• Finalização do MVP
+• Testes reais
+• Login corporativo
+• App mobile
+
+---
+Slide 11: Contato
+Duração: 5 segundos
+Texto:
+Vagner de Oliveira Florencio
+Email: vagner@vofdev.com.br
+LinkedIn: linkedin.com/in/vagner-florencio
+GitHub: github.com/v4gn32
+
+---

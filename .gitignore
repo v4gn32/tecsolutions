@@ -1,0 +1,22 @@
+*.bkp
+*.DS_Store
+*.log
+
+# MySQL Docker dev
+codigo-fonte/mysql-dev/logs/*.log
+codigo-fonte/mysql-dev/logs/*.cnf.bkp
+codigo-fonte/mysql-dev/logs/*.err
+codigo-fonte/mysql-dev/*.pid
+codigo-fonte/mysql-dev/*.sock
+
+# Arquivos de dump e dados temporários
+codigo-fonte/mysql-dev/*.sql.bkp
+codigo-fonte/mysql-dev/dump/
+
+# Outros arquivos comuns de ambiente
+.env
+node_modules/
+dist/
+build/
+.vscode/
+.idea/
