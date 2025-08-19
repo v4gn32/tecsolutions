@@ -6,6 +6,7 @@ export interface Client {
   company: string;
   cnpj?: string;
   address: string;
+  type: 'contrato' | 'avulso';
   createdAt: Date;
 }
 

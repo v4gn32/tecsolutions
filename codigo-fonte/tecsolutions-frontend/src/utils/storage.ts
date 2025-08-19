@@ -115,6 +115,7 @@ export const initializeStorage = (): void => {
         company: 'Empresa ABC Ltda',
         cnpj: '12.345.678/0001-90',
         address: 'Rua das Flores, 123 - São Paulo, SP',
+        type: 'contrato',
         createdAt: new Date('2024-01-15'),
       },
       {
@@ -125,6 +126,7 @@ export const initializeStorage = (): void => {
         company: 'Comércio XYZ',
         cnpj: '98.765.432/0001-10',
         address: 'Av. Paulista, 456 - São Paulo, SP',
+        type: 'avulso',
         createdAt: new Date('2024-01-20'),
       },
     ];

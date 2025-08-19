@@ -6,6 +6,7 @@ import { Client } from '../types';
 const Clients: React.FC = () => {
   const [clients, setClients] = useState<Client[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [typeFilter, setTypeFilter] = useState<string>('all');
   const [showModal, setShowModal] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   
@@ -15,7 +16,8 @@ const Clients: React.FC = () => {
     phone: '',
     company: '',
     cnpj: '',
-    address: ''
+    address: '',
+    type: 'avulso' as 'contrato' | 'avulso'
   });
   
   useEffect(() => {
@@ -23,9 +25,10 @@ const Clients: React.FC = () => {
   }, []);
   
   const filteredClients = clients.filter(client =>
-    client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     client.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    client.email.toLowerCase().includes(searchTerm.toLowerCase())
+    client.email.toLowerCase().includes(searchTerm.toLowerCase())) &&
+    (typeFilter === 'all' || client.type === typeFilter)
   );
   
   const resetForm = () => {
@@ -35,7 +38,8 @@ const Clients: React.FC = () => {
       phone: '',
       company: '',
       cnpj: '',
-      address: ''
+      address: '',
+      type: 'avulso'
     });
     setEditingClient(null);
   };
@@ -63,7 +67,8 @@ const Clients: React.FC = () => {
       phone: client.phone,
       company: client.company,
       cnpj: client.cnpj || '',
-      address: client.address
+      address: client.address,
+      type: client.type
     });
     setShowModal(true);
   };
@@ -92,17 +97,32 @@ const Clients: React.FC = () => {
         </button>
       </div>
       
-      {/* Search */}
+      {/* Filters */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-          <input
-            type="text"
-            placeholder="Buscar clientes..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-          />
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex-1">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <input
+                type="text"
+                placeholder="Buscar clientes..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+              />
+            </div>
+          </div>
+          <div className="sm:w-48">
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+            >
+              <option value="all">Todos os Tipos</option>
+              <option value="contrato">Contrato</option>
+              <option value="avulso">Avulso</option>
+            </select>
+          </div>
         </div>
       </div>
       
@@ -114,6 +134,13 @@ const Clients: React.FC = () => {
               <div className="flex-1">
                 <h3 className="text-lg font-medium text-gray-900">{client.company}</h3>
                 <p className="text-sm text-gray-600">{client.name}</p>
+                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium mt-2 ${
+                  client.type === 'contrato' 
+                    ? 'bg-green-100 text-green-800' 
+                    : 'bg-blue-100 text-blue-800'
+                }`}>
+                  {client.type === 'contrato' ? 'Contrato' : 'Avulso'}
+                </span>
               </div>
               <div className="flex space-x-2">
                 <button
@@ -262,6 +289,36 @@ const Clients: React.FC = () => {
                   onChange={(e) => setFormData({ ...formData, cnpj: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                 />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Tipo de Cliente *
+                </label>
+                <div className="flex space-x-4">
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="type"
+                      value="contrato"
+                      checked={formData.type === 'contrato'}
+                      onChange={(e) => setFormData({ ...formData, type: e.target.value as 'contrato' | 'avulso' })}
+                      className="mr-2 text-cyan-600 focus:ring-cyan-500"
+                    />
+                    <span className="text-sm text-gray-700">Contrato</span>
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="type"
+                      value="avulso"
+                      checked={formData.type === 'avulso'}
+                      onChange={(e) => setFormData({ ...formData, type: e.target.value as 'contrato' | 'avulso' })}
+                      className="mr-2 text-cyan-600 focus:ring-cyan-500"
+                    />
+                    <span className="text-sm text-gray-700">Avulso</span>
+                  </label>
+                </div>
               </div>
               
               <div>
