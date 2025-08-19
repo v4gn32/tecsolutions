@@ -1,104 +1,183 @@
-import React, { useState, useEffect } from 'react';
-import { PlusCircle, Search, Edit, Trash2, Users, Shield, User } from 'lucide-react';
-import { getUsers, saveUser, deleteUser } from '../../utils/auth';
-import { User as UserType } from '../../types/auth';
-import { useAuth } from '../../contexts/AuthContext';
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  PlusCircle,
+  Search,
+  Edit,
+  Trash2,
+  Users,
+  Shield,
+  User,
+} from "lucide-react";
+// 🔗 Cliente HTTP central (configure interceptors/tokens)
+import { api } from "../../services/api";
+import { User as UserType } from "../../types/auth";
+import { useAuth } from "../../contexts/AuthContext";
 
 const UserManagement: React.FC = () => {
-  const [users, setUsers] = useState<UserType[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [showModal, setShowModal] = useState(false);
-  const [editingUser, setEditingUser] = useState<UserType | null>(null);
-  const { user: currentUser } = useAuth();
-  
+  // -------------------- Estado base --------------------
+  const [users, setUsers] = useState<UserType[]>([]); // lista de usuários do backend
+  const [searchTerm, setSearchTerm] = useState(""); // busca por nome/email
+  const [showModal, setShowModal] = useState(false); // modal create/edit
+  const [editingUser, setEditingUser] = useState<UserType | null>(null); // usuário em edição
+  const { user: currentUser } = useAuth(); // usuário logado (para regras)
+
+  // -------------------- Estado de UI --------------------
+  const [isLoading, setIsLoading] = useState(false); // loading da tabela
+  const [isSaving, setIsSaving] = useState(false); // loading do submit
+  const [error, setError] = useState<string | null>(null); // mensagem de erro
+
+  // -------------------- Formulário --------------------
   const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    role: 'user' as 'admin' | 'user',
-    password: ''
+    name: "",
+    email: "",
+    role: "user" as "admin" | "user",
+    password: "", // no edit: opcional
   });
-  
+
+  // -------------------- Buscar usuários (backend) --------------------
+  const loadUsers = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      // # Se o backend suportar filtro, enviamos ?q=
+      const params: Record<string, string> = {};
+      if (searchTerm.trim()) params.q = searchTerm.trim();
+
+      const { data } = await api.get<UserType[]>("/admin/users", { params });
+      setUsers(Array.isArray(data) ? data : []);
+    } catch (e: any) {
+      setError("Falha ao carregar usuários. Tente novamente.");
+      setUsers([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    setUsers(getUsers());
-  }, []);
-  
-  const filteredUsers = users.filter(user =>
-    user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-  
+    loadUsers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchTerm]);
+
+  // -------------------- Fallback de filtro local --------------------
+  const filteredUsers = useMemo(() => {
+    const term = searchTerm.toLowerCase();
+    return (users || []).filter(
+      (u) =>
+        !term ||
+        u.name?.toLowerCase().includes(term) ||
+        u.email?.toLowerCase().includes(term)
+    );
+  }, [users, searchTerm]);
+
+  // -------------------- Helpers --------------------
   const resetForm = () => {
-    setFormData({
-      name: '',
-      email: '',
-      role: 'user',
-      password: ''
-    });
+    setFormData({ name: "", email: "", role: "user", password: "" });
     setEditingUser(null);
   };
-  
-  const handleSubmit = (e: React.FormEvent) => {
+
+  // -------------------- Criar/Atualizar --------------------
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    const user: UserType = {
-      id: editingUser?.id || Date.now().toString(),
-      name: formData.name,
-      email: formData.email,
-      role: formData.role,
-      createdAt: editingUser?.createdAt || new Date(),
-      createdBy: currentUser?.id
-    };
-    
-    saveUser(user, formData.password);
-    setUsers(getUsers());
-    setShowModal(false);
-    resetForm();
+    setIsSaving(true);
+    setError(null);
+
+    try {
+      if (editingUser) {
+        // # Atualiza usuário: senha é opcional (envie apenas se preenchida)
+        const payload: any = {
+          name: formData.name,
+          email: formData.email,
+          role: formData.role,
+        };
+        if (formData.password.trim()) payload.password = formData.password;
+
+        await api.put(`/admin/users/${editingUser.id}`, payload);
+      } else {
+        // # Cria usuário novo (senha obrigatória)
+        await api.post("/admin/users", {
+          name: formData.name,
+          email: formData.email,
+          role: formData.role,
+          password: formData.password,
+        });
+      }
+
+      await loadUsers(); // recarrega lista
+      setShowModal(false); // fecha modal
+      resetForm(); // limpa form
+    } catch (e: any) {
+      const msg =
+        e?.response?.data?.message ||
+        e?.response?.data?.error ||
+        "Falha ao salvar o usuário. Verifique os dados e tente novamente.";
+      setError(msg);
+    } finally {
+      setIsSaving(false);
+    }
   };
-  
+
+  // -------------------- Editar --------------------
   const handleEdit = (user: UserType) => {
     setEditingUser(user);
     setFormData({
       name: user.name,
       email: user.email,
-      role: user.role,
-      password: '' // Don't show existing password
+      role: user.role as "admin" | "user",
+      password: "", // não exibimos senha atual
     });
     setShowModal(true);
   };
-  
-  const handleDelete = (id: string) => {
+
+  // -------------------- Excluir --------------------
+  const handleDelete = async (id: string) => {
     if (id === currentUser?.id) {
-      alert('Você não pode excluir sua própria conta!');
+      alert("Você não pode excluir sua própria conta!");
       return;
     }
-    
-    if (window.confirm('Tem certeza que deseja excluir este usuário?')) {
-      deleteUser(id);
-      setUsers(getUsers());
+    if (!window.confirm("Tem certeza que deseja excluir este usuário?")) return;
+
+    setError(null);
+    try {
+      await api.delete(`/admin/users/${id}`);
+      await loadUsers();
+    } catch (e: any) {
+      setError("Falha ao excluir o usuário. Tente novamente.");
     }
   };
-  
+
+  // -------------------- Render --------------------
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* ==================== Header ==================== */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Gerenciar Usuários</h1>
+          <h1 className="text-2xl font-bold text-gray-900">
+            Gerenciar Usuários
+          </h1>
           <p className="text-gray-600">Controle de acesso ao sistema</p>
         </div>
         <button
-          onClick={() => setShowModal(true)}
+          onClick={() => {
+            resetForm(); // garante form limpo
+            setShowModal(true);
+          }}
           className="inline-flex items-center px-4 py-2 bg-tecsolutions-primary text-white text-sm font-medium rounded-lg hover:bg-opacity-90 transition-colors duration-200"
         >
           <PlusCircle className="w-4 h-4 mr-2" />
           Novo Usuário
         </button>
       </div>
-      
-      {/* Search */}
+
+      {/* ==================== Alertas/Busca ==================== */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-2 text-sm">
+          {error}
+        </div>
+      )}
+
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
           <input
             type="text"
             placeholder="Buscar usuários..."
@@ -107,9 +186,12 @@ const UserManagement: React.FC = () => {
             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-tecsolutions-accent focus:border-transparent"
           />
         </div>
+        {isLoading && (
+          <p className="mt-3 text-sm text-gray-500">Carregando usuários...</p>
+        )}
       </div>
-      
-      {/* Users List */}
+
+      {/* ==================== Tabela ==================== */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
         {filteredUsers.length > 0 ? (
           <div className="overflow-x-auto">
@@ -149,12 +231,14 @@ const UserManagement: React.FC = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        user.role === 'admin' 
-                          ? 'bg-red-100 text-red-800' 
-                          : 'bg-blue-100 text-blue-800'
-                      }`}>
-                        {user.role === 'admin' ? (
+                      <span
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          user.role === "admin"
+                            ? "bg-red-100 text-red-800"
+                            : "bg-blue-100 text-blue-800"
+                        }`}
+                      >
+                        {user.role === "admin" ? (
                           <>
                             <Shield className="w-3 h-3 mr-1" />
                             Administrador
@@ -168,7 +252,11 @@ const UserManagement: React.FC = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(user.createdAt).toLocaleDateString('pt-BR')}
+                      {user.createdAt
+                        ? new Date(user.createdAt as any).toLocaleDateString(
+                            "pt-BR"
+                          )
+                        : "—"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex items-center justify-end space-x-2">
@@ -196,6 +284,7 @@ const UserManagement: React.FC = () => {
             </table>
           </div>
         ) : (
+          // Estado vazio
           <div className="text-center py-12">
             <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <Users className="w-8 h-8 text-gray-400" />
@@ -204,26 +293,26 @@ const UserManagement: React.FC = () => {
               Nenhum usuário encontrado
             </h3>
             <p className="text-gray-600 mb-6">
-              {searchTerm 
-                ? 'Tente ajustar o termo de busca' 
-                : 'Cadastre o primeiro usuário para começar'
-              }
+              {searchTerm
+                ? "Tente ajustar o termo de busca"
+                : "Cadastre o primeiro usuário para começar"}
             </p>
           </div>
         )}
       </div>
-      
-      {/* Modal */}
+
+      {/* ==================== Modal (Criar/Editar) ==================== */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-gray-200">
               <h3 className="text-lg font-medium text-gray-900">
-                {editingUser ? 'Editar Usuário' : 'Novo Usuário'}
+                {editingUser ? "Editar Usuário" : "Novo Usuário"}
               </h3>
             </div>
-            
+
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
+              {/* Nome */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Nome *
@@ -231,12 +320,15 @@ const UserManagement: React.FC = () => {
                 <input
                   type="text"
                   value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, name: e.target.value })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-tecsolutions-accent focus:border-transparent"
                   required
                 />
               </div>
-              
+
+              {/* Email */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   E-mail *
@@ -244,19 +336,27 @@ const UserManagement: React.FC = () => {
                 <input
                   type="email"
                   value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, email: e.target.value })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-tecsolutions-accent focus:border-transparent"
                   required
                 />
               </div>
-              
+
+              {/* Perfil */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Perfil *
                 </label>
                 <select
                   value={formData.role}
-                  onChange={(e) => setFormData({ ...formData, role: e.target.value as 'admin' | 'user' })}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      role: e.target.value as "admin" | "user",
+                    })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-tecsolutions-accent focus:border-transparent"
                   required
                 >
@@ -264,20 +364,25 @@ const UserManagement: React.FC = () => {
                   <option value="admin">Administrador</option>
                 </select>
               </div>
-              
+
+              {/* Senha */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Senha {editingUser ? '(deixe em branco para manter a atual)' : '*'}
+                  Senha{" "}
+                  {editingUser ? "(deixe em branco para manter a atual)" : "*"}
                 </label>
                 <input
                   type="password"
                   value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, password: e.target.value })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-tecsolutions-accent focus:border-transparent"
                   required={!editingUser}
                 />
               </div>
-              
+
+              {/* Ações do modal */}
               <div className="flex justify-end space-x-3 pt-4">
                 <button
                   type="button"
@@ -291,9 +396,14 @@ const UserManagement: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-tecsolutions-primary text-white text-sm font-medium rounded-lg hover:bg-opacity-90 transition-colors duration-200"
+                  disabled={isSaving}
+                  className="px-4 py-2 bg-tecsolutions-primary text-white text-sm font-medium rounded-lg hover:bg-opacity-90 transition-colors duration-200 disabled:opacity-70"
                 >
-                  {editingUser ? 'Atualizar' : 'Cadastrar'}
+                  {isSaving
+                    ? "Salvando..."
+                    : editingUser
+                    ? "Atualizar"
+                    : "Cadastrar"}
                 </button>
               </div>
             </form>

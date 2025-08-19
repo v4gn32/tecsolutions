@@ -1,18 +1,19 @@
-export interface User {
+// types/auth.ts
+export type Role = "admin" | "tecnico" | "user";
+
+export type User = {
   id: string;
   name: string;
   email: string;
-  role: 'admin' | 'user';
-  createdAt: Date;
-  createdBy?: string;
-}
+  role: Role;
+};
 
-export interface AuthState {
+export type AuthState = {
   user: User | null;
   isAuthenticated: boolean;
-}
+};
 
-export interface LoginCredentials {
+export type LoginCredentials = {
   email: string;
   password: string;
-}
+};

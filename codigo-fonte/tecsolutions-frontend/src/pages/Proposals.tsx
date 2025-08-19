@@ -1,61 +1,101 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { 
-  PlusCircle, 
-  Search, 
-  Filter, 
-  Download, 
-  Mail,
-  Edit,
-  Trash2,
-  Eye
-} from 'lucide-react';
-import { getProposals, getClients, deleteProposal } from '../utils/storage';
-import { Proposal, Client } from '../types';
-import StatusBadge from '../components/StatusBadge';
+import React, { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { PlusCircle, Search, Filter, Mail, Edit, Trash2 } from "lucide-react";
+// 🔗 API central (token em memória via interceptor)
+import { api } from "../services/api";
+import { Proposal, Client } from "../types";
+import StatusBadge from "../components/StatusBadge";
 
 const Proposals: React.FC = () => {
-  const [proposals, setProposals] = useState<Proposal[]>([]);
-  const [clients, setClients] = useState<Client[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  
+  // -------------------- Estados --------------------
+  const [proposals, setProposals] = useState<Proposal[]>([]); // propostas do backend
+  const [clients, setClients] = useState<Client[]>([]); // clientes (para exibir nome/empresa)
+  const [searchTerm, setSearchTerm] = useState(""); // filtro texto
+  const [statusFilter, setStatusFilter] = useState<string>("all"); // filtro status
+  const [isLoading, setIsLoading] = useState<boolean>(false); // loading tabela
+  const [error, setError] = useState<string | null>(null); // erro simples
+
+  // -------------------- Carga inicial --------------------
+  const loadData = async () => {
+    // # Busca propostas e clientes (com possibilidade de filtros server-side)
+    setIsLoading(true);
+    setError(null);
+    try {
+      const params: Record<string, string> = {};
+      if (searchTerm.trim()) params.q = searchTerm.trim(); // backend: busca por número/título/cliente
+      if (statusFilter !== "all") params.status = statusFilter; // backend: filtra por status
+
+      const [pRes, cRes] = await Promise.all([
+        api.get<Proposal[]>("/proposals", { params }),
+        api.get<Client[]>("/clients"),
+      ]);
+
+      setProposals(Array.isArray(pRes.data) ? pRes.data : []);
+      setClients(Array.isArray(cRes.data) ? cRes.data : []);
+    } catch (e: any) {
+      setError("Falha ao carregar propostas. Tente novamente.");
+      setProposals([]);
+      setClients([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    setProposals(getProposals());
-    setClients(getClients());
-  }, []);
-  
-  const filteredProposals = proposals.filter(proposal => {
-    const client = clients.find(c => c.id === proposal.clientId);
-    const matchesSearch = 
-      proposal.number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      proposal.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      client?.company.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesStatus = statusFilter === 'all' || proposal.status === statusFilter;
-    
-    return matchesSearch && matchesStatus;
-  });
-  
-  const handleDelete = (id: string) => {
-    if (window.confirm('Tem certeza que deseja excluir esta proposta?')) {
-      deleteProposal(id);
-      setProposals(getProposals());
+    loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchTerm, statusFilter]);
+
+  // -------------------- Fallback de filtro local --------------------
+  const filteredProposals = useMemo(() => {
+    const list = proposals || [];
+    if (!list.length) return [];
+    const term = searchTerm.toLowerCase();
+
+    return list.filter((proposal) => {
+      const client = clients.find((c) => c.id === proposal.clientId);
+      const matchesSearch =
+        !term ||
+        proposal.number?.toLowerCase().includes(term) ||
+        proposal.title?.toLowerCase().includes(term) ||
+        client?.company?.toLowerCase().includes(term);
+      const matchesStatus =
+        statusFilter === "all" || proposal.status === statusFilter;
+      return matchesSearch && matchesStatus;
+    });
+  }, [proposals, clients, searchTerm, statusFilter]);
+
+  // -------------------- Ações --------------------
+  const handleDelete = async (id: string) => {
+    // # Exclui proposta no backend e recarrega
+    if (!window.confirm("Tem certeza que deseja excluir esta proposta?"))
+      return;
+    setError(null);
+    try {
+      await api.delete(`/proposals/${id}`);
+      await loadData();
+    } catch (e: any) {
+      setError("Falha ao excluir a proposta. Tente novamente.");
     }
   };
-  
+
   const handleSendEmail = (proposal: Proposal) => {
-    const client = clients.find(c => c.id === proposal.clientId);
-    if (client) {
-      const subject = `Proposta Comercial - ${proposal.number}`;
-      const body = `Prezado(a) ${client.name},\n\nSegue em anexo nossa proposta comercial.\n\nAtenciosamente,\nEquipe TecSolutions`;
-      window.open(`mailto:${client.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
-    }
+    // # Abre cliente de email com assunto/corpo (mailto)
+    const client = clients.find((c) => c.id === proposal.clientId);
+    if (!client) return;
+    const subject = `Proposta Comercial - ${proposal.number}`;
+    const body = `Prezado(a) ${client.name},\n\nSegue em anexo nossa proposta comercial.\n\nAtenciosamente,\nEquipe TecSolutions`;
+    window.open(
+      `mailto:${client.email}?subject=${encodeURIComponent(
+        subject
+      )}&body=${encodeURIComponent(body)}`
+    );
   };
-  
+
+  // -------------------- Render --------------------
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* ==================== Header ==================== */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Propostas</h1>
@@ -69,10 +109,18 @@ const Proposals: React.FC = () => {
           Nova Proposta
         </Link>
       </div>
-      
-      {/* Filters */}
+
+      {/* ==================== Alertas ==================== */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-2 text-sm">
+          {error}
+        </div>
+      )}
+
+      {/* ==================== Filtros ==================== */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="flex flex-col sm:flex-row gap-4">
+          {/* Busca */}
           <div className="flex-1">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
@@ -85,6 +133,7 @@ const Proposals: React.FC = () => {
               />
             </div>
           </div>
+          {/* Status */}
           <div className="sm:w-48">
             <select
               value={statusFilter}
@@ -100,10 +149,15 @@ const Proposals: React.FC = () => {
           </div>
         </div>
       </div>
-      
-      {/* Proposals List */}
+
+      {/* ==================== Tabela ==================== */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-        {filteredProposals.length > 0 ? (
+        {isLoading ? (
+          // Loading da lista
+          <div className="p-6 text-sm text-gray-500">
+            Carregando propostas...
+          </div>
+        ) : filteredProposals.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
@@ -130,9 +184,12 @@ const Proposals: React.FC = () => {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredProposals.map((proposal) => {
-                  const client = clients.find(c => c.id === proposal.clientId);
+                  const client = clients.find(
+                    (c) => c.id === proposal.clientId
+                  );
                   return (
                     <tr key={proposal.id} className="hover:bg-gray-50">
+                      {/* Número/Título */}
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div>
                           <div className="text-sm font-medium text-gray-900">
@@ -143,23 +200,37 @@ const Proposals: React.FC = () => {
                           </div>
                         </div>
                       </td>
+
+                      {/* Cliente */}
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">
-                          {client?.company || 'Cliente não encontrado'}
+                          {client?.company || "Cliente não encontrado"}
                         </div>
                         <div className="text-sm text-gray-500">
                           {client?.name}
                         </div>
                       </td>
+
+                      {/* Valor */}
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        R$ {proposal.total.toFixed(2)}
+                        R$ {(Number(proposal.total) || 0).toFixed(2)}
                       </td>
+
+                      {/* Status */}
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <StatusBadge status={proposal.status} />
+                        <StatusBadge status={proposal.status as any} />
                       </td>
+
+                      {/* Data */}
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(proposal.createdAt).toLocaleDateString('pt-BR')}
+                        {proposal.createdAt
+                          ? new Date(
+                              proposal.createdAt as any
+                            ).toLocaleDateString("pt-BR")
+                          : "—"}
                       </td>
+
+                      {/* Ações */}
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div className="flex items-center justify-end space-x-2">
                           <button
@@ -192,6 +263,7 @@ const Proposals: React.FC = () => {
             </table>
           </div>
         ) : (
+          // Estado vazio
           <div className="text-center py-12">
             <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <Filter className="w-8 h-8 text-gray-400" />
@@ -200,12 +272,11 @@ const Proposals: React.FC = () => {
               Nenhuma proposta encontrada
             </h3>
             <p className="text-gray-600 mb-6">
-              {searchTerm || statusFilter !== 'all' 
-                ? 'Tente ajustar os filtros de busca' 
-                : 'Crie sua primeira proposta para começar'
-              }
+              {searchTerm || statusFilter !== "all"
+                ? "Tente ajustar os filtros de busca"
+                : "Crie sua primeira proposta para começar"}
             </p>
-            {!searchTerm && statusFilter === 'all' && (
+            {!searchTerm && statusFilter === "all" && (
               <Link
                 to="/proposals/new"
                 className="inline-flex items-center px-4 py-2 bg-cyan-600 text-white text-sm font-medium rounded-lg hover:bg-cyan-700 transition-colors duration-200"

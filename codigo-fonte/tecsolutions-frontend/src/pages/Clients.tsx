@@ -1,105 +1,180 @@
-import React, { useState, useEffect } from 'react';
-import { PlusCircle, Search, Edit, Trash2, Mail, Phone } from 'lucide-react';
-import { getClients, saveClient, deleteClient } from '../utils/storage';
-import { Client } from '../types';
+import React, { useState, useEffect, useMemo } from "react";
+import { PlusCircle, Search, Edit, Trash2, Mail, Phone } from "lucide-react";
+// 🔗 API central (usa token em memória via interceptor)
+import { api } from "../services/api";
+import { Client } from "../types";
 
 const Clients: React.FC = () => {
-  const [clients, setClients] = useState<Client[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [typeFilter, setTypeFilter] = useState<string>('all');
-  const [showModal, setShowModal] = useState(false);
-  const [editingClient, setEditingClient] = useState<Client | null>(null);
-  
+  // -------------------- Estados básicos --------------------
+  const [clients, setClients] = useState<Client[]>([]); // lista vinda do backend
+  const [searchTerm, setSearchTerm] = useState(""); // termo de busca (cliente/empresa/email)
+  const [typeFilter, setTypeFilter] = useState<string>("all"); // filtro contrato|avulso
+  const [showModal, setShowModal] = useState(false); // controla modal criar/editar
+  const [editingClient, setEditingClient] = useState<Client | null>(null); // cliente em edição
+  const [isLoading, setIsLoading] = useState(false); // loading global de listagem
+  const [isSaving, setIsSaving] = useState(false); // loading do submit
+  const [error, setError] = useState<string | null>(null); // erro simples
+
+  // -------------------- Formulário --------------------
   const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    company: '',
-    cnpj: '',
-    address: '',
-    type: 'avulso' as 'contrato' | 'avulso'
+    name: "",
+    email: "",
+    phone: "",
+    company: "",
+    cnpj: "",
+    address: "",
+    type: "avulso" as "contrato" | "avulso",
   });
-  
+
+  // -------------------- Carregar lista do backend --------------------
+  const loadClients = async () => {
+    // # Busca lista no backend com possíveis filtros server-side
+    setIsLoading(true);
+    setError(null);
+    try {
+      const params: Record<string, string> = {};
+      if (searchTerm.trim()) params.q = searchTerm.trim(); // backend: filtro por texto (opcional)
+      if (typeFilter !== "all") params.type = typeFilter; // backend: filtro por tipo (opcional)
+
+      const { data } = await api.get<Client[]>("/clients", { params });
+      setClients(Array.isArray(data) ? data : []);
+    } catch (e: any) {
+      setError("Falha ao carregar clientes. Tente novamente.");
+      setClients([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Carrega ao montar e quando filtros mudarem
   useEffect(() => {
-    setClients(getClients());
-  }, []);
-  
-  const filteredClients = clients.filter(client =>
-    (client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    client.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    client.email.toLowerCase().includes(searchTerm.toLowerCase())) &&
-    (typeFilter === 'all' || client.type === typeFilter)
-  );
-  
+    loadClients();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchTerm, typeFilter]);
+
+  // -------------------- Fallback de filtro local (se backend não filtra) --------------------
+  // Mantém a UI responsiva mesmo se o backend ignorar params
+  const filteredClients = useMemo(() => {
+    const list = clients || [];
+    return list.filter((client) => {
+      const matchesText =
+        !searchTerm ||
+        client.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        client.company?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        client.email?.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesType = typeFilter === "all" || client.type === typeFilter;
+      return matchesText && matchesType;
+    });
+  }, [clients, searchTerm, typeFilter]);
+
+  // -------------------- Utilitários --------------------
   const resetForm = () => {
+    // # Limpa o formulário e o estado de edição
     setFormData({
-      name: '',
-      email: '',
-      phone: '',
-      company: '',
-      cnpj: '',
-      address: '',
-      type: 'avulso'
+      name: "",
+      email: "",
+      phone: "",
+      company: "",
+      cnpj: "",
+      address: "",
+      type: "avulso",
     });
     setEditingClient(null);
   };
-  
-  const handleSubmit = (e: React.FormEvent) => {
+
+  // -------------------- Submit (Create/Update) --------------------
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    const client: Client = {
-      id: editingClient?.id || Date.now().toString(),
-      ...formData,
-      createdAt: editingClient?.createdAt || new Date()
-    };
-    
-    saveClient(client);
-    setClients(getClients());
-    setShowModal(false);
-    resetForm();
+    setIsSaving(true);
+    setError(null);
+
+    try {
+      if (editingClient) {
+        // # Atualizar cliente
+        await api.put(`/clients/${editingClient.id}`, {
+          ...formData,
+        });
+      } else {
+        // # Criar cliente
+        await api.post("/clients", {
+          ...formData,
+        });
+      }
+      // Recarrega lista após salvar
+      await loadClients();
+      // Fecha modal e limpa form
+      setShowModal(false);
+      resetForm();
+    } catch (e: any) {
+      setError(
+        "Falha ao salvar cliente. Verifique os campos e tente novamente."
+      );
+    } finally {
+      setIsSaving(false);
+    }
   };
-  
+
+  // -------------------- Editar --------------------
   const handleEdit = (client: Client) => {
+    // # Preenche form com dados do cliente e abre modal
     setEditingClient(client);
     setFormData({
-      name: client.name,
-      email: client.email,
-      phone: client.phone,
-      company: client.company,
-      cnpj: client.cnpj || '',
-      address: client.address,
-      type: client.type
+      name: client.name || "",
+      email: client.email || "",
+      phone: client.phone || "",
+      company: client.company || "",
+      cnpj: client.cnpj || "",
+      address: client.address || "",
+      type: (client.type as "contrato" | "avulso") || "avulso",
     });
     setShowModal(true);
   };
-  
-  const handleDelete = (id: string) => {
-    if (window.confirm('Tem certeza que deseja excluir este cliente?')) {
-      deleteClient(id);
-      setClients(getClients());
+
+  // -------------------- Excluir --------------------
+  const handleDelete = async (id: string) => {
+    // # Confirma e exclui via backend
+    if (window.confirm("Tem certeza que deseja excluir este cliente?")) {
+      setError(null);
+      try {
+        await api.delete(`/clients/${id}`);
+        await loadClients();
+      } catch (e: any) {
+        setError("Falha ao excluir cliente. Tente novamente.");
+      }
     }
   };
-  
+
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* ==================== Header ==================== */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Clientes</h1>
           <p className="text-gray-600">Gerencie sua base de clientes</p>
         </div>
         <button
-          onClick={() => setShowModal(true)}
+          onClick={() => {
+            resetForm(); // # garante form limpo ao abrir
+            setShowModal(true);
+          }}
           className="inline-flex items-center px-4 py-2 bg-cyan-600 text-white text-sm font-medium rounded-lg hover:bg-cyan-700 transition-colors duration-200"
         >
           <PlusCircle className="w-4 h-4 mr-2" />
           Novo Cliente
         </button>
       </div>
-      
-      {/* Filters */}
+
+      {/* ==================== Alertas Simples ==================== */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-2 text-sm">
+          {error}
+        </div>
+      )}
+
+      {/* ==================== Filtros ==================== */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="flex flex-col sm:flex-row gap-4">
+          {/* # Busca por texto (name/company/email) */}
           <div className="flex-1">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
@@ -112,6 +187,8 @@ const Clients: React.FC = () => {
               />
             </div>
           </div>
+
+          {/* # Filtro por tipo */}
           <div className="sm:w-48">
             <select
               value={typeFilter}
@@ -125,72 +202,94 @@ const Clients: React.FC = () => {
           </div>
         </div>
       </div>
-      
-      {/* Clients Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredClients.map((client) => (
-          <div key={client.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex-1">
-                <h3 className="text-lg font-medium text-gray-900">{client.company}</h3>
-                <p className="text-sm text-gray-600">{client.name}</p>
-                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium mt-2 ${
-                  client.type === 'contrato' 
-                    ? 'bg-green-100 text-green-800' 
-                    : 'bg-blue-100 text-blue-800'
-                }`}>
-                  {client.type === 'contrato' ? 'Contrato' : 'Avulso'}
-                </span>
+
+      {/* ==================== Grid de Clientes ==================== */}
+      {isLoading ? (
+        // # Loading simples enquanto busca no backend
+        <div className="text-sm text-gray-500">Carregando clientes...</div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredClients.map((client) => (
+            <div
+              key={client.id}
+              className="bg-white rounded-lg shadow-sm border border-gray-200 p-6"
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex-1">
+                  <h3 className="text-lg font-medium text-gray-900">
+                    {client.company}
+                  </h3>
+                  <p className="text-sm text-gray-600">{client.name}</p>
+                  <span
+                    className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium mt-2 ${
+                      client.type === "contrato"
+                        ? "bg-green-100 text-green-800"
+                        : "bg-blue-100 text-blue-800"
+                    }`}
+                  >
+                    {client.type === "contrato" ? "Contrato" : "Avulso"}
+                  </span>
+                </div>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => handleEdit(client)}
+                    className="text-gray-400 hover:text-gray-600 p-1"
+                    title="Editar"
+                  >
+                    <Edit className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(client.id)}
+                    className="text-gray-400 hover:text-red-600 p-1"
+                    title="Excluir"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
-              <div className="flex space-x-2">
-                <button
-                  onClick={() => handleEdit(client)}
-                  className="text-gray-400 hover:text-gray-600 p-1"
-                >
-                  <Edit className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => handleDelete(client.id)}
-                  className="text-gray-400 hover:text-red-600 p-1"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+
+              <div className="space-y-2">
+                <div className="flex items-center text-sm text-gray-600">
+                  <Mail className="w-4 h-4 mr-2" />
+                  <a
+                    href={`mailto:${client.email}`}
+                    className="hover:text-cyan-600"
+                  >
+                    {client.email}
+                  </a>
+                </div>
+                <div className="flex items-center text-sm text-gray-600">
+                  <Phone className="w-4 h-4 mr-2" />
+                  <a
+                    href={`tel:${client.phone}`}
+                    className="hover:text-cyan-600"
+                  >
+                    {client.phone}
+                  </a>
+                </div>
+                {client.cnpj && (
+                  <p className="text-sm text-gray-600">CNPJ: {client.cnpj}</p>
+                )}
+                <p className="text-sm text-gray-600">{client.address}</p>
               </div>
-            </div>
-            
-            <div className="space-y-2">
-              <div className="flex items-center text-sm text-gray-600">
-                <Mail className="w-4 h-4 mr-2" />
-                <a href={`mailto:${client.email}`} className="hover:text-cyan-600">
-                  {client.email}
-                </a>
-              </div>
-              <div className="flex items-center text-sm text-gray-600">
-                <Phone className="w-4 h-4 mr-2" />
-                <a href={`tel:${client.phone}`} className="hover:text-cyan-600">
-                  {client.phone}
-                </a>
-              </div>
-              {client.cnpj && (
-                <p className="text-sm text-gray-600">
-                  CNPJ: {client.cnpj}
+
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <p className="text-xs text-gray-500">
+                  {/* # Mostra criação se existir; senão, vazio */}
+                  {client.createdAt
+                    ? `Cliente desde ${new Date(
+                        client.createdAt
+                      ).toLocaleDateString("pt-BR")}`
+                    : "—"}
                 </p>
-              )}
-              <p className="text-sm text-gray-600">
-                {client.address}
-              </p>
+              </div>
             </div>
-            
-            <div className="mt-4 pt-4 border-t border-gray-200">
-              <p className="text-xs text-gray-500">
-                Cliente desde {new Date(client.createdAt).toLocaleDateString('pt-BR')}
-              </p>
-            </div>
-          </div>
-        ))}
-      </div>
-      
-      {filteredClients.length === 0 && (
+          ))}
+        </div>
+      )}
+
+      {/* ==================== Estado vazio ==================== */}
+      {!isLoading && filteredClients.length === 0 && (
         <div className="text-center py-12">
           <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <Search className="w-8 h-8 text-gray-400" />
@@ -199,14 +298,16 @@ const Clients: React.FC = () => {
             Nenhum cliente encontrado
           </h3>
           <p className="text-gray-600 mb-6">
-            {searchTerm 
-              ? 'Tente ajustar o termo de busca' 
-              : 'Cadastre seu primeiro cliente para começar'
-            }
+            {searchTerm
+              ? "Tente ajustar o termo de busca"
+              : "Cadastre seu primeiro cliente para começar"}
           </p>
           {!searchTerm && (
             <button
-              onClick={() => setShowModal(true)}
+              onClick={() => {
+                resetForm();
+                setShowModal(true);
+              }}
               className="inline-flex items-center px-4 py-2 bg-cyan-600 text-white text-sm font-medium rounded-lg hover:bg-cyan-700 transition-colors duration-200"
             >
               <PlusCircle className="w-4 h-4 mr-2" />
@@ -215,18 +316,19 @@ const Clients: React.FC = () => {
           )}
         </div>
       )}
-      
-      {/* Modal */}
+
+      {/* ==================== Modal (Criar/Editar) ==================== */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-gray-200">
               <h3 className="text-lg font-medium text-gray-900">
-                {editingClient ? 'Editar Cliente' : 'Novo Cliente'}
+                {editingClient ? "Editar Cliente" : "Novo Cliente"}
               </h3>
             </div>
-            
+
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
+              {/* Nome */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Nome *
@@ -234,12 +336,15 @@ const Clients: React.FC = () => {
                 <input
                   type="text"
                   value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, name: e.target.value })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                   required
                 />
               </div>
-              
+
+              {/* Empresa */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Empresa *
@@ -247,12 +352,15 @@ const Clients: React.FC = () => {
                 <input
                   type="text"
                   value={formData.company}
-                  onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, company: e.target.value })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                   required
                 />
               </div>
-              
+
+              {/* Email */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Email *
@@ -260,12 +368,15 @@ const Clients: React.FC = () => {
                 <input
                   type="email"
                   value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, email: e.target.value })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                   required
                 />
               </div>
-              
+
+              {/* Telefone */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Telefone *
@@ -273,12 +384,15 @@ const Clients: React.FC = () => {
                 <input
                   type="tel"
                   value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, phone: e.target.value })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                   required
                 />
               </div>
-              
+
+              {/* CNPJ */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   CNPJ
@@ -286,11 +400,14 @@ const Clients: React.FC = () => {
                 <input
                   type="text"
                   value={formData.cnpj}
-                  onChange={(e) => setFormData({ ...formData, cnpj: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, cnpj: e.target.value })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                 />
               </div>
-              
+
+              {/* Tipo */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Tipo de Cliente *
@@ -301,8 +418,13 @@ const Clients: React.FC = () => {
                       type="radio"
                       name="type"
                       value="contrato"
-                      checked={formData.type === 'contrato'}
-                      onChange={(e) => setFormData({ ...formData, type: e.target.value as 'contrato' | 'avulso' })}
+                      checked={formData.type === "contrato"}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          type: e.target.value as "contrato" | "avulso",
+                        })
+                      }
                       className="mr-2 text-cyan-600 focus:ring-cyan-500"
                     />
                     <span className="text-sm text-gray-700">Contrato</span>
@@ -312,28 +434,37 @@ const Clients: React.FC = () => {
                       type="radio"
                       name="type"
                       value="avulso"
-                      checked={formData.type === 'avulso'}
-                      onChange={(e) => setFormData({ ...formData, type: e.target.value as 'contrato' | 'avulso' })}
+                      checked={formData.type === "avulso"}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          type: e.target.value as "contrato" | "avulso",
+                        })
+                      }
                       className="mr-2 text-cyan-600 focus:ring-cyan-500"
                     />
                     <span className="text-sm text-gray-700">Avulso</span>
                   </label>
                 </div>
               </div>
-              
+
+              {/* Endereço */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Endereço *
                 </label>
                 <textarea
                   value={formData.address}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, address: e.target.value })
+                  }
                   rows={3}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                   required
                 />
               </div>
-              
+
+              {/* Ações */}
               <div className="flex justify-end space-x-3 pt-4">
                 <button
                   type="button"
@@ -347,9 +478,14 @@ const Clients: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-cyan-600 text-white text-sm font-medium rounded-lg hover:bg-cyan-700 transition-colors duration-200"
+                  disabled={isSaving}
+                  className="px-4 py-2 bg-cyan-600 text-white text-sm font-medium rounded-lg hover:bg-cyan-700 transition-colors duration-200 disabled:opacity-70"
                 >
-                  {editingClient ? 'Atualizar' : 'Cadastrar'}
+                  {isSaving
+                    ? "Salvando..."
+                    : editingClient
+                    ? "Atualizar"
+                    : "Cadastrar"}
                 </button>
               </div>
             </form>
