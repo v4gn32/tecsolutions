@@ -1,14 +1,75 @@
 // prisma/seed.js
-// 🔧 Popula: User (ADMIN), Clients (empresa+responsável), Services, Products
+// 🔧 Seed minimal: 1 admin, 2 clientes, 3 serviços, 3 produtos
 
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, ServiceCategory, ProductCategory } from "@prisma/client"; // <- importa enums AQUI
 import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
+// 🛡️ Validação dos enums (evita typo)
+const allowServices = new Set(Object.keys(ServiceCategory)); // <- usa enum importado
+const allowProducts = new Set(Object.keys(ProductCategory)); // <- idem
+
+// 🔧 Dados
+const SERVICES = [
+  {
+    name: "Suporte Helpdesk",
+    desc: "Suporte remoto e presencial",
+    price: 120,
+    cat: ServiceCategory.HELPDESK,
+    unit: "hora",
+  },
+  {
+    name: "Instalação de Software",
+    desc: "Instalação/atualização corporativa",
+    price: 100,
+    cat: ServiceCategory.INSTALACAO,
+    unit: "hora",
+  },
+  {
+    name: "Backup em Nuvem",
+    desc: "Rotina de backup em nuvem",
+    price: 250,
+    cat: ServiceCategory.BACKUP,
+    unit: "mensal",
+  },
+];
+
+const PRODUCT = [
+  {
+    name: "Cabo de Rede Cat6 2m",
+    desc: "Cat6 de 2 metros",
+    price: 25,
+    cat: ProductCategory.CABOS,
+    unit: "unidade",
+    brand: "Furukawa",
+    model: "CAT6-2M",
+    stock: 50,
+  },
+  {
+    name: "Roteador Wi‑Fi 6",
+    desc: "Dual band Wi‑Fi 6",
+    price: 650,
+    cat: ProductCategory.EQUIPAMENTOS,
+    unit: "unidade",
+    brand: "Asus",
+    model: "RT-AX55",
+    stock: 8,
+  },
+  {
+    name: "Mouse Óptico USB",
+    desc: "Mouse com fio USB",
+    price: 45,
+    cat: ProductCategory.ACESSORIOS,
+    unit: "unidade",
+    brand: "Logitech",
+    model: "M90",
+    stock: 25,
+  },
+];
+
 async function main() {
-  // 0) (opcional em DEV) zera tabelas para rodar seed à vontade
-  //    -> comente se não quiser limpar
+  // 0) Limpa tabelas (DEV)
   await prisma.$transaction([
     prisma.product.deleteMany({}),
     prisma.service.deleteMany({}),
@@ -16,78 +77,83 @@ async function main() {
     prisma.user.deleteMany({}),
   ]);
 
-  // 1) Usuário ADMIN (upsert garante idempotência)
+  // 1) Admin
   await prisma.user.upsert({
     where: { email: "admin@tecsolutions.com.br" },
-    update: {}, // nada a atualizar no seed
+    update: {},
     create: {
       name: "Administrador",
       email: "admin@tecsolutions.com.br",
-      password: await bcrypt.hash("admin123", 10), // 🔐 senha hash
-      role: "ADMIN", // enum/STRING conforme seu schema
+      password: await bcrypt.hash("admin123", 10),
+      role: "ADMIN",
     },
   });
 
-  // 2) Clientes (empresa = cliente + responsável)
+  // 2) Clientes
   await prisma.client.createMany({
     data: [
       {
-        companyName: "CFCA Lider", // 🏢 empresa
-        address: "Rua Briquet, 123 - SP", // 📍 endereço
-        contactName: "Eric", // 👤 responsável
-        contactEmail: "eric@cfca.com.br", // ✉️ e-mail (único)
-        contactPhone: "11 99999-0001", // ☎️ telefone
-        type: "AVULSO", // 🔖 tipo
+        contactName: "Eric",
+        companyName: "CFCA Líder",
+        email: "eric@cfca.com.br",
+        phone: "11999990001",
+        cnpj: null,
+        type: "AVULSO",
+        address: "Rua Briquet, 123 - SP",
       },
       {
-        companyName: "Allora Construtora",
-        address: "Av. Pedro Alvarenga, 456 - SP",
         contactName: "Sandra Lagi",
-        contactEmail: "sandra@alloraconstrutora.com.br",
-        contactPhone: "11 99999-0002",
+        companyName: "Allora Construtora",
+        email: "sandra@alloraconstrutora.com.br",
+        phone: "11999990002",
+        cnpj: "00000000000130",
         type: "CONTRATO",
-        contractStart: new Date("2025-08-01"),
-        contractEnd: new Date("2026-07-31"),
-      },
-    ],
-    skipDuplicates: true, // evita erro se rodar 2x
-  });
-
-  // 3) Serviços
-  await prisma.service.createMany({
-    data: [
-      {
-        name: "Suporte Helpdesk",
-        description: "Suporte remoto e presencial para usuários",
-        price: 120.0, // se for Decimal no schema, string também funciona: "120.00"
-        category: "HELPDESK", // deve casar com enum se existir
-        unit: "hora", // idem
+        address: "Av. Pedro Alvarenga, 456 - SP",
       },
       {
-        name: "Instalação e Configuração de Impressora",
-        description: "Nova Impressora HP DeskJet Ink Advantage 5480",
-        price: 120.0,
-        category: "INSTALACAO",
-        unit: "hora",
+        contactName: "Denis Kamisaka",
+        companyName: "MFC Construtora",
+        email: "denis@mfcconstrutora.com.br",
+        phone: "11999990003",
+        cnpj: "00000000000199",
+        type: "CONTRATO",
+        address: "Rua das Acácias, 789 - SP",
       },
     ],
     skipDuplicates: true,
   });
 
-  // 4) Produtos
-  await prisma.product.createMany({
-    data: [
-      {
-        name: "Switch 24 portas",
-        description: "Switch gerenciável 24 portas Gigabit",
-        price: 890.0,
-        category: "EQUIPAMENTOS",
-        unit: "unidade",
-        brand: "TP-Link",
-        model: "TL-SG1024DE",
-        stock: 5,
+  // 3) Serviços (valida enum e cria um a um)
+  for (const s of SERVICES) {
+    if (!allowServices.has(s.cat))
+      throw new Error(`Categoria de serviço inválida: ${s.cat}`);
+    await prisma.service.create({
+      data: {
+        name: s.name,
+        description: s.desc,
+        price: s.price,
+        category: s.cat,
+        unit: s.unit,
       },
-    ],
+    });
+  }
+
+  // 4) Produtos (valida enum e cria em lote)
+  for (const p of PRODUCT) {
+    if (!allowProducts.has(p.cat))
+      throw new Error(`Categoria de produto inválida: ${p.cat}`);
+  }
+  await prisma.product.createMany({
+    data: PRODUCT.map((p) => ({
+      name: p.name,
+      description: p.desc,
+      price: p.price,
+      category: p.cat,
+      unit: p.unit,
+      brand: p.brand,
+      model: p.model,
+      stock: p.stock,
+    })),
     skipDuplicates: true,
   });
 

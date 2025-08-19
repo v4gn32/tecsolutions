@@ -1,8 +1,11 @@
 -- CreateEnum
+CREATE TYPE "public"."ClientType" AS ENUM ('CONTRATO', 'AVULSO');
+
+-- CreateEnum
 CREATE TYPE "public"."Role" AS ENUM ('ADMIN', 'USER');
 
 -- CreateEnum
-CREATE TYPE "public"."ServiceCategory" AS ENUM ('INFRAESTRUTURA', 'HELPDESK', 'NUVEM', 'BACKUP', 'CABEAMENTO', 'OUTROS');
+CREATE TYPE "public"."ServiceCategory" AS ENUM ('HELPDESK', 'INSTALACAO', 'SISTEMA', 'EMAIL', 'SEGURANCA', 'BACKUP', 'SERVIDOR', 'REDE', 'IMPRESSORA', 'USUARIO', 'INFRA', 'WEB', 'TREINAMENTO', 'GESTAO');
 
 -- CreateEnum
 CREATE TYPE "public"."ProductCategory" AS ENUM ('CABOS', 'CONECTORES', 'EQUIPAMENTOS', 'ACESSORIOS', 'OUTROS');
@@ -26,13 +29,17 @@ CREATE TABLE "public"."User" (
 -- CreateTable
 CREATE TABLE "public"."Client" (
     "id" TEXT NOT NULL,
-    "name" TEXT NOT NULL,
-    "email" TEXT NOT NULL,
-    "phone" TEXT NOT NULL,
     "company" TEXT NOT NULL,
     "cnpj" TEXT,
     "address" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
+    "phone" TEXT NOT NULL,
+    "type" "public"."ClientType" NOT NULL DEFAULT 'AVULSO',
+    "contractStart" TIMESTAMP(3),
+    "contractEnd" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "Client_pkey" PRIMARY KEY ("id")
 );
@@ -43,7 +50,7 @@ CREATE TABLE "public"."Service" (
     "name" TEXT NOT NULL,
     "description" TEXT NOT NULL,
     "price" DOUBLE PRECISION NOT NULL,
-    "category" "public"."ServiceCategory" NOT NULL DEFAULT 'OUTROS',
+    "category" "public"."ServiceCategory" NOT NULL,
     "unit" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -112,6 +119,9 @@ CREATE TABLE "public"."ProposalProductItem" (
 
 -- CreateIndex
 CREATE UNIQUE INDEX "User_email_key" ON "public"."User"("email");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Client_cnpj_key" ON "public"."Client"("cnpj");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Proposal_number_key" ON "public"."Proposal"("number");

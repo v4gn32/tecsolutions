@@ -26,19 +26,16 @@ enum ClientType {
 }
 
 model Client {
-  id          String  @id @default(cuid()) // id
-  companyName String  @map("company") // nome da empresa (mapeado p/ coluna antiga "company")
-  cnpj        String? @unique // CNPJ opcional (único quando existir)
-  address     String // endereço
-  contactName  String @map("name") // nome do responsável (mapeado p/ "name")
-  contactEmail String @map("email") // e-mail do responsável (mapeado p/ "email")
-  contactPhone String @map("phone") // telefone do responsável (mapeado p/ "phone")
-  type          ClientType @default(AVULSO) // tipo de cliente
-  contractStart DateTime? // início de contrato (se CONTRATO)
-  contractEnd   DateTime? // fim de contrato
-  proposals Proposal[] // se existir relação
-  createdAt DateTime   @default(now()) // criado em
-  updatedAt DateTime   @updatedAt // atualizado em
+  id          String     @id @default(cuid())
+  contactName String     @map("contact_name")
+  companyName String     @map("company")
+  email       String
+  phone       String
+  cnpj        String?    @unique
+  type        ClientType
+  address     String
+  createdAt   DateTime   @default(now())
+  Proposal    Proposal[]
 }
 
 model Service {
@@ -46,7 +43,7 @@ model Service {
   name          String
   description   String
   price         Float
-  category      ServiceCategory @default(OUTROS)
+  category      ServiceCategory
   unit          String
   createdAt     DateTime        @default(now())
   proposalItems ProposalItem[]
@@ -115,12 +112,20 @@ enum Role {
 }
 
 enum ServiceCategory {
-  INFRAESTRUTURA
   HELPDESK
-  NUVEM
+  INSTALACAO
+  SISTEMA
+  EMAIL
+  SEGURANCA
   BACKUP
-  CABEAMENTO
-  OUTROS
+  SERVIDOR
+  REDE
+  IMPRESSORA
+  USUARIO
+  INFRA
+  WEB
+  TREINAMENTO
+  GESTAO
 }
 
 enum ProductCategory {
