@@ -1,19 +1,60 @@
+// src/pages/Clients.tsx
 import React, { useState, useEffect, useMemo } from "react";
 import { PlusCircle, Search, Edit, Trash2, Mail, Phone } from "lucide-react";
-// 🔗 API central (usa token em memória via interceptor)
 import { api } from "../services/api";
 import { Client } from "../types";
 
+/** 🔁 Adapter: API -> UI (garante campos corretos para a tela) */
+const toUI = (c: any): Client => ({
+  id: c.id,
+  // mapeia contactName -> name (fallback para name antigo)
+  name: c.contactName ?? c.name ?? "",
+  // mapeia companyName -> company (fallback para company antigo)
+  company: c.companyName ?? c.company ?? "",
+  email: c.email ?? "",
+  phone: c.phone ?? "",
+  cnpj: c.cnpj ?? "",
+  address: c.address ?? "",
+  // enum backend (CONTRATO|AVULSO) -> ui (contrato|avulso)
+  type:
+    typeof c.type === "string"
+      ? (c.type.toLowerCase() as "contrato" | "avulso")
+      : "avulso",
+  createdAt: c.createdAt ?? null,
+});
+
+/** 🔁 Adapter: UI -> API (garante payload correto para o backend) */
+const toAPI = (f: {
+  name: string;
+  company: string;
+  email: string;
+  phone: string;
+  cnpj: string;
+  address: string;
+  type: "contrato" | "avulso";
+}) => ({
+  // nome do responsável no backend
+  contactName: f.name,
+  // nome da empresa no backend
+  companyName: f.company,
+  email: f.email,
+  phone: f.phone,
+  cnpj: f.cnpj || null,
+  address: f.address,
+  // ui (contrato|avulso) -> enum backend (CONTRATO|AVULSO)
+  type: f.type.toUpperCase(), // "CONTRATO" | "AVULSO"
+});
+
 const Clients: React.FC = () => {
   // -------------------- Estados básicos --------------------
-  const [clients, setClients] = useState<Client[]>([]); // lista vinda do backend
-  const [searchTerm, setSearchTerm] = useState(""); // termo de busca (cliente/empresa/email)
-  const [typeFilter, setTypeFilter] = useState<string>("all"); // filtro contrato|avulso
-  const [showModal, setShowModal] = useState(false); // controla modal criar/editar
-  const [editingClient, setEditingClient] = useState<Client | null>(null); // cliente em edição
-  const [isLoading, setIsLoading] = useState(false); // loading global de listagem
-  const [isSaving, setIsSaving] = useState(false); // loading do submit
-  const [error, setError] = useState<string | null>(null); // erro simples
+  const [clients, setClients] = useState<Client[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [showModal, setShowModal] = useState(false);
+  const [editingClient, setEditingClient] = useState<Client | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // -------------------- Formulário --------------------
   const [formData, setFormData] = useState({
@@ -28,16 +69,17 @@ const Clients: React.FC = () => {
 
   // -------------------- Carregar lista do backend --------------------
   const loadClients = async () => {
-    // # Busca lista no backend com possíveis filtros server-side
     setIsLoading(true);
     setError(null);
     try {
       const params: Record<string, string> = {};
-      if (searchTerm.trim()) params.q = searchTerm.trim(); // backend: filtro por texto (opcional)
-      if (typeFilter !== "all") params.type = typeFilter; // backend: filtro por tipo (opcional)
+      if (searchTerm.trim()) params.q = searchTerm.trim();
+      if (typeFilter !== "all") params.type = typeFilter;
 
-      const { data } = await api.get<Client[]>("/clients", { params });
-      setClients(Array.isArray(data) ? data : []);
+      const { data } = await api.get("/clients", { params });
+      const arr = Array.isArray(data) ? data : [];
+      // aplica adapter em cada item
+      setClients(arr.map(toUI));
     } catch (e: any) {
       setError("Falha ao carregar clientes. Tente novamente.");
       setClients([]);
@@ -46,14 +88,12 @@ const Clients: React.FC = () => {
     }
   };
 
-  // Carrega ao montar e quando filtros mudarem
   useEffect(() => {
     loadClients();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchTerm, typeFilter]);
 
-  // -------------------- Fallback de filtro local (se backend não filtra) --------------------
-  // Mantém a UI responsiva mesmo se o backend ignorar params
+  // -------------------- Filtro local (fallback) --------------------
   const filteredClients = useMemo(() => {
     const list = clients || [];
     return list.filter((client) => {
@@ -67,9 +107,8 @@ const Clients: React.FC = () => {
     });
   }, [clients, searchTerm, typeFilter]);
 
-  // -------------------- Utilitários --------------------
+  // -------------------- Util --------------------
   const resetForm = () => {
-    // # Limpa o formulário e o estado de edição
     setFormData({
       name: "",
       email: "",
@@ -89,20 +128,13 @@ const Clients: React.FC = () => {
     setError(null);
 
     try {
+      const payload = toAPI(formData); // 🔁 aplica adapter UI -> API
       if (editingClient) {
-        // # Atualizar cliente
-        await api.put(`/clients/${editingClient.id}`, {
-          ...formData,
-        });
+        await api.put(`/clients/${editingClient.id}`, payload);
       } else {
-        // # Criar cliente
-        await api.post("/clients", {
-          ...formData,
-        });
+        await api.post("/clients", payload);
       }
-      // Recarrega lista após salvar
       await loadClients();
-      // Fecha modal e limpa form
       setShowModal(false);
       resetForm();
     } catch (e: any) {
@@ -116,7 +148,6 @@ const Clients: React.FC = () => {
 
   // -------------------- Editar --------------------
   const handleEdit = (client: Client) => {
-    // # Preenche form com dados do cliente e abre modal
     setEditingClient(client);
     setFormData({
       name: client.name || "",
@@ -132,7 +163,6 @@ const Clients: React.FC = () => {
 
   // -------------------- Excluir --------------------
   const handleDelete = async (id: string) => {
-    // # Confirma e exclui via backend
     if (window.confirm("Tem certeza que deseja excluir este cliente?")) {
       setError(null);
       try {
@@ -154,7 +184,7 @@ const Clients: React.FC = () => {
         </div>
         <button
           onClick={() => {
-            resetForm(); // # garante form limpo ao abrir
+            resetForm();
             setShowModal(true);
           }}
           className="inline-flex items-center px-4 py-2 bg-cyan-600 text-white text-sm font-medium rounded-lg hover:bg-cyan-700 transition-colors duration-200"
@@ -164,7 +194,7 @@ const Clients: React.FC = () => {
         </button>
       </div>
 
-      {/* ==================== Alertas Simples ==================== */}
+      {/* ==================== Alertas ==================== */}
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-2 text-sm">
           {error}
@@ -174,10 +204,9 @@ const Clients: React.FC = () => {
       {/* ==================== Filtros ==================== */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="flex flex-col sm:flex-row gap-4">
-          {/* # Busca por texto (name/company/email) */}
           <div className="flex-1">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
               <input
                 type="text"
                 placeholder="Buscar clientes..."
@@ -187,8 +216,6 @@ const Clients: React.FC = () => {
               />
             </div>
           </div>
-
-          {/* # Filtro por tipo */}
           <div className="sm:w-48">
             <select
               value={typeFilter}
@@ -203,9 +230,8 @@ const Clients: React.FC = () => {
         </div>
       </div>
 
-      {/* ==================== Grid de Clientes ==================== */}
+      {/* ==================== Grid ==================== */}
       {isLoading ? (
-        // # Loading simples enquanto busca no backend
         <div className="text-sm text-gray-500">Carregando clientes...</div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -216,10 +242,14 @@ const Clients: React.FC = () => {
             >
               <div className="flex items-start justify-between mb-4">
                 <div className="flex-1">
+                  {/* 🏷️ Empresa (com fallback) */}
                   <h3 className="text-lg font-medium text-gray-900">
-                    {client.company}
+                    {client.company || "—"}
                   </h3>
-                  <p className="text-sm text-gray-600">{client.name}</p>
+                  {/* 👤 Responsável (com fallback) */}
+                  <p className="text-sm text-gray-600">{client.name || "—"}</p>
+
+                  {/* Selo de tipo */}
                   <span
                     className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium mt-2 ${
                       client.type === "contrato"
@@ -275,7 +305,6 @@ const Clients: React.FC = () => {
 
               <div className="mt-4 pt-4 border-t border-gray-200">
                 <p className="text-xs text-gray-500">
-                  {/* # Mostra criação se existir; senão, vazio */}
                   {client.createdAt
                     ? `Cliente desde ${new Date(
                         client.createdAt
@@ -288,7 +317,7 @@ const Clients: React.FC = () => {
         </div>
       )}
 
-      {/* ==================== Estado vazio ==================== */}
+      {/* ==================== Vazio ==================== */}
       {!isLoading && filteredClients.length === 0 && (
         <div className="text-center py-12">
           <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -328,7 +357,7 @@ const Clients: React.FC = () => {
             </div>
 
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
-              {/* Nome */}
+              {/* Nome do responsável */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Nome *
