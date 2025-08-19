@@ -9,72 +9,82 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
+  id        String     @id @default(cuid())
   name      String
-  email     String   @unique
+  email     String     @unique
   password  String
-  role      Role     @default(USER)
-  createdAt DateTime @default(now())
-  createdBy String?  // ID do usuário que criou (admin)
+  role      Role       @default(USER)
+  createdAt DateTime   @default(now())
+  createdBy String? // ID do usuário que criou (admin)
   proposals Proposal[]
+}
+
+// enum continua igual
+enum ClientType {
+  CONTRATO
+  AVULSO
 }
 
 model Client {
-  id        String    @id @default(cuid())
-  name      String
-  email     String
-  phone     String
-  company   String
-  cnpj      String?
-  address   String
-  createdAt DateTime  @default(now())
-  proposals Proposal[]
+  id          String  @id @default(cuid()) // id
+  companyName String  @map("company") // nome da empresa (mapeado p/ coluna antiga "company")
+  cnpj        String? @unique // CNPJ opcional (único quando existir)
+  address     String // endereço
+  contactName  String @map("name") // nome do responsável (mapeado p/ "name")
+  contactEmail String @map("email") // e-mail do responsável (mapeado p/ "email")
+  contactPhone String @map("phone") // telefone do responsável (mapeado p/ "phone")
+  type          ClientType @default(AVULSO) // tipo de cliente
+  contractStart DateTime? // início de contrato (se CONTRATO)
+  contractEnd   DateTime? // fim de contrato
+  proposals Proposal[] // se existir relação
+  createdAt DateTime   @default(now()) // criado em
+  updatedAt DateTime   @updatedAt // atualizado em
 }
 
 model Service {
-  id          String    @id @default(cuid())
-  name        String
-  description String
-  price       Float
-  category    ServiceCategory @default(OUTROS)
-  unit        String
-  createdAt   DateTime  @default(now())
+  id            String          @id @default(cuid())
+  name          String
+  description   String
+  price         Float
+  category      ServiceCategory @default(OUTROS)
+  unit          String
+  createdAt     DateTime        @default(now())
   proposalItems ProposalItem[]
 }
 
 model Product {
-  id          String    @id @default(cuid())
-  name        String
-  description String
-  price       Float
-  category    ProductCategory @default(OUTROS)
-  unit        String
-  brand       String?
-  model       String?
-  stock       Int?
-  createdAt   DateTime  @default(now())
+  id                   String                @id @default(cuid())
+  name                 String
+  description          String
+  price                Float
+  category             ProductCategory       @default(OUTROS)
+  unit                 String
+  brand                String?
+  model                String?
+  stock                Int?
+  createdAt            DateTime              @default(now())
   proposalProductItems ProposalProductItem[]
 }
 
 model Proposal {
-  id            String                @id @default(cuid())
-  clientId      String
-  client        Client                 @relation(fields: [clientId], references: [id])
-  userId        String?
-  user          User?                   @relation(fields: [userId], references: [id])
-  number        String                  @unique
-  title         String
-  description   String?
-  subtotal      Float
-  discount      Float                   @default(0)
-  total         Float
-  status        ProposalStatus           @default(RASCUNHO)
-  validUntil    DateTime
-  createdAt     DateTime                 @default(now())
-  updatedAt     DateTime                 @updatedAt
-  notes         String?
-  items         ProposalItem[]
-  productItems  ProposalProductItem[]
+  id           String                @id @default(cuid())
+  clientId     String
+  client       Client                @relation(fields: [clientId], references: [id])
+  userId       String?
+  user         User?                 @relation(fields: [userId], references: [id])
+  number       String                @unique
+  title        String
+  description  String?
+  subtotal     Float
+  discount     Float                 @default(0)
+  total        Float
+  status       ProposalStatus        @default(RASCUNHO)
+  validUntil   DateTime
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+  notes        String?
+  items        ProposalItem[]
+  productItems ProposalProductItem[]
 }
 
 model ProposalItem {

@@ -1,19 +1,18 @@
 // src/routes/clients.routes.js
-import { Router } from 'express';
+import { Router } from "express";
 import {
   getClients,
   createClient,
   updateClient,
-  deleteClient
-} from '../controllers/clients.controller.js';
+  deleteClient,
+} from "../controllers/clients.controller.js";
 
-import { authenticate } from '../middlewares/auth.middleware.js';
+import { authenticate } from "../middlewares/auth.middleware.js";
 
 const router = Router();
-
-router.get('/', authenticate, getClients);
-router.post('/', authenticate, createClient);
-router.put('/:id', authenticate, updateClient);
-router.delete('/:id', authenticate, deleteClient);
+router.post("/", authenticate, createClient); // ➕ criar
+router.get("/", authenticate, getClients); // 📄 listar
+router.patch("/:id", authenticate, updateClient); // ✏️ atualizar
+router.delete("/:id", authenticate, deleteClient); // 🗑️ deletar
 
 export default router;
