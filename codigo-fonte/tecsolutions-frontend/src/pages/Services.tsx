@@ -1,21 +1,33 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { PlusCircle, Search, Edit, Trash2, Tag } from "lucide-react";
+import { PlusCircle, Search, Edit, Trash2 } from "lucide-react";
+
 // 🔗 Cliente HTTP central (configure tokens/interceptors em ../services/api)
 import { api } from "../services/api";
 import { Service } from "../types";
 
+// 🏷️ Badge de categoria + mapeadores
+import CategoryBadge from "../components/CategoryBadge";
+import { serviceCategoryLabel, serviceCategoryTone } from "../utils/category";
+
+// 💰 Formatador BRL
+const brl = (v: number) =>
+  (Number(v) || 0).toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+
 const Services: React.FC = () => {
   // -------------------- Estado base --------------------
-  const [services, setServices] = useState<Service[]>([]); // lista vinda do backend
-  const [searchTerm, setSearchTerm] = useState(""); // filtro texto
-  const [categoryFilter, setCategoryFilter] = useState<string>("all"); // filtro categoria
-  const [showModal, setShowModal] = useState(false); // modal create/edit
-  const [editingService, setEditingService] = useState<Service | null>(null); // item em edição
+  const [services, setServices] = useState<Service[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [showModal, setShowModal] = useState(false);
+  const [editingService, setEditingService] = useState<Service | null>(null);
 
   // -------------------- Estado de UI --------------------
-  const [isLoading, setIsLoading] = useState<boolean>(false); // loading listagem
-  const [isSaving, setIsSaving] = useState<boolean>(false); // loading submit
-  const [error, setError] = useState<string | null>(null); // mensagem de erro
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
 
   // -------------------- Formulário --------------------
   const [formData, setFormData] = useState({
@@ -26,7 +38,7 @@ const Services: React.FC = () => {
     unit: "",
   });
 
-  // Catálogo de categorias (pode vir do backend futuramente)
+  // 📚 Catálogo de categorias (pode vir do backend futuramente)
   const categories = [
     { value: "infraestrutura", label: "Infraestrutura" },
     { value: "helpdesk", label: "Helpdesk" },
@@ -38,7 +50,6 @@ const Services: React.FC = () => {
 
   // -------------------- Carregar serviços (backend) --------------------
   const loadServices = async () => {
-    // # Busca no backend com suporte a filtros via querystring
     setIsLoading(true);
     setError(null);
     try {
@@ -77,7 +88,6 @@ const Services: React.FC = () => {
 
   // -------------------- Helpers --------------------
   const resetForm = () => {
-    // # Limpa formulário e encerra modo edição
     setFormData({
       name: "",
       description: "",
@@ -88,18 +98,6 @@ const Services: React.FC = () => {
     setEditingService(null);
   };
 
-  const getCategoryColor = (category: string) => {
-    const colors = {
-      infraestrutura: "bg-blue-100 text-blue-800",
-      helpdesk: "bg-green-100 text-green-800",
-      nuvem: "bg-purple-100 text-purple-800",
-      backup: "bg-orange-100 text-orange-800",
-      cabeamento: "bg-yellow-100 text-yellow-800",
-      outros: "bg-gray-100 text-gray-800",
-    };
-    return (colors as any)[category] || colors.outros;
-  };
-
   // -------------------- Submit (Create/Update) --------------------
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -108,16 +106,16 @@ const Services: React.FC = () => {
 
     try {
       if (editingService) {
-        // # Atualiza serviço existente
+        // ✏️ Atualiza serviço
         await api.put(`/services/${editingService.id}`, { ...formData });
       } else {
-        // # Cria novo serviço
+        // ➕ Cria serviço
         await api.post("/services", { ...formData });
       }
 
-      await loadServices(); // # Recarrega lista após salvar
-      setShowModal(false); // # Fecha modal
-      resetForm(); // # Limpa formulário
+      await loadServices();
+      setShowModal(false);
+      resetForm();
     } catch (e: any) {
       const msg =
         e?.response?.data?.message ||
@@ -131,7 +129,6 @@ const Services: React.FC = () => {
 
   // -------------------- Editar --------------------
   const handleEdit = (service: Service) => {
-    // # Preenche formulário com dados do item e abre modal
     setEditingService(service);
     setFormData({
       name: service.name,
@@ -166,7 +163,7 @@ const Services: React.FC = () => {
         </div>
         <button
           onClick={() => {
-            resetForm(); // # garante form limpo
+            resetForm();
             setShowModal(true);
           }}
           className="inline-flex items-center px-4 py-2 bg-cyan-600 text-white text-sm font-medium rounded-lg hover:bg-cyan-700 transition-colors duration-200"
@@ -227,23 +224,23 @@ const Services: React.FC = () => {
               key={service.id}
               className="bg-white rounded-lg shadow-sm border border-gray-200 p-6"
             >
+              {/* Cabeçalho do card */}
               <div className="flex items-start justify-between mb-4">
                 <div className="flex-1">
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  {/* 🏷️ Título */}
+                  <h3 className="text-lg font-medium text-gray-900">
                     {service.name}
                   </h3>
-                  <span
-                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getCategoryColor(
-                      service.category
-                    )}`}
-                  >
-                    <Tag className="w-3 h-3 mr-1" />
-                    {
-                      categories.find((c) => c.value === service.category)
-                        ?.label
-                    }
-                  </span>
+
+                  {/* 🔹 Badge de CATEGORIA logo abaixo do título */}
+                  <CategoryBadge
+                    label={serviceCategoryLabel(service.category)}
+                    tone={serviceCategoryTone(service.category)}
+                    className="mt-2"
+                  />
                 </div>
+
+                {/* Ações */}
                 <div className="flex space-x-2">
                   <button
                     onClick={() => handleEdit(service)}
@@ -262,14 +259,16 @@ const Services: React.FC = () => {
                 </div>
               </div>
 
+              {/* Descrição */}
               <p className="text-sm text-gray-600 mb-4 line-clamp-3">
                 {service.description}
               </p>
 
+              {/* Preço + unidade + data */}
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-lg font-semibold text-gray-900">
-                    R$ {Number(service.price).toFixed(2)}
+                    {brl(Number(service.price))}
                   </p>
                   <p className="text-xs text-gray-500">por {service.unit}</p>
                 </div>

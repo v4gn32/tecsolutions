@@ -1,8 +1,19 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { PlusCircle, Search, Edit, Trash2, Package } from "lucide-react";
+import { PlusCircle, Search, Edit, Trash2 } from "lucide-react";
 // 🔗 API central (token em memória via interceptor)
 import { api } from "../services/api";
 import { Product } from "../types";
+
+// 🏷️ Badge de categoria + mapeadores
+import CategoryBadge from "../components/CategoryBadge";
+import { productCategoryLabel, productCategoryTone } from "../utils/category";
+
+// 💰 Formatador BRL (preço)
+const brl = (v: number) =>
+  (Number(v) || 0).toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
 
 const Products: React.FC = () => {
   // -------------------- Estado base --------------------
@@ -29,7 +40,7 @@ const Products: React.FC = () => {
     stock: 0,
   });
 
-  // Catálogo de categorias (se quiser, pode vir do backend futuramente)
+  // 📚 Catálogo de categorias (se quiser, pode vir do backend futuramente)
   const categories = [
     { value: "cabos", label: "Cabos" },
     { value: "conectores", label: "Conectores" },
@@ -40,7 +51,7 @@ const Products: React.FC = () => {
 
   // -------------------- Carregar produtos --------------------
   const loadProducts = async () => {
-    // # Busca lista no backend (pode aceitar params q / category se implementado)
+    // # Busca lista no backend (aceita q/ category se implementado)
     setIsLoading(true);
     setError(null);
     try {
@@ -95,17 +106,7 @@ const Products: React.FC = () => {
     setEditingProduct(null);
   };
 
-  const getCategoryColor = (category: string) => {
-    const colors = {
-      cabos: "bg-blue-100 text-blue-800",
-      conectores: "bg-green-100 text-green-800",
-      equipamentos: "bg-purple-100 text-purple-800",
-      acessorios: "bg-orange-100 text-orange-800",
-      outros: "bg-gray-100 text-gray-800",
-    };
-    return (colors as any)[category] || colors.outros;
-  };
-
+  // 🧮 Status de estoque (texto + cor)
   const getStockStatus = (stock?: number) => {
     if (!stock || stock === 0)
       return { color: "text-red-600", label: "Sem estoque" };
@@ -121,10 +122,10 @@ const Products: React.FC = () => {
 
     try {
       if (editingProduct) {
-        // # Atualiza produto existente
+        // ✏️ Atualiza produto existente
         await api.put(`/products/${editingProduct.id}`, { ...formData });
       } else {
-        // # Cria novo produto
+        // ➕ Cria novo produto
         await api.post("/products", { ...formData });
       }
 
@@ -234,7 +235,7 @@ const Products: React.FC = () => {
 
       {/* ==================== Grid de Produtos ==================== */}
       {isLoading ? (
-        // Loading simples
+        // ⏳ Loading simples
         <div className="text-sm text-gray-500">Carregando produtos...</div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -245,23 +246,23 @@ const Products: React.FC = () => {
                 key={product.id}
                 className="bg-white rounded-lg shadow-sm border border-gray-200 p-6"
               >
+                {/* Cabeçalho do card */}
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex-1">
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">
+                    {/* 🏷️ Título */}
+                    <h3 className="text-lg font-medium text-gray-900">
                       {product.name}
                     </h3>
-                    <span
-                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getCategoryColor(
-                        product.category
-                      )}`}
-                    >
-                      <Package className="w-3 h-3 mr-1" />
-                      {
-                        categories.find((c) => c.value === product.category)
-                          ?.label
-                      }
-                    </span>
+
+                    {/* 🔹 Badge de CATEGORIA logo abaixo do título */}
+                    <CategoryBadge
+                      label={productCategoryLabel(product.category)}
+                      tone={productCategoryTone(product.category)}
+                      className="mt-2"
+                    />
                   </div>
+
+                  {/* Ações */}
                   <div className="flex space-x-2">
                     <button
                       onClick={() => handleEdit(product)}
@@ -280,27 +281,31 @@ const Products: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Descrição */}
                 <p className="text-sm text-gray-600 mb-4 line-clamp-2">
                   {product.description}
                 </p>
 
+                {/* Marca — Modelo (quando houver) */}
                 {(product.brand || product.model) && (
-                  <div className="mb-4 text-sm text-gray-600">
+                  <div className="mb-4 text-sm text-gray-700">
                     {product.brand && (
-                      <span className="font-medium">{product.brand}</span>
+                      <span className="font-semibold">{product.brand}</span>
                     )}
-                    {product.brand && product.model && <span> - </span>}
+                    {product.brand && product.model && <span> — </span>}
                     {product.model && <span>{product.model}</span>}
                   </div>
                 )}
 
+                {/* Preço/unidade + estoque */}
                 <div className="flex items-center justify-between mb-3">
                   <div>
                     <p className="text-lg font-semibold text-gray-900">
-                      R$ {Number(product.price).toFixed(2)}
+                      {brl(Number(product.price))}
                     </p>
                     <p className="text-xs text-gray-500">por {product.unit}</p>
                   </div>
+
                   {product.stock !== undefined && (
                     <div className="text-right">
                       <p className={`text-sm font-medium ${stockStatus.color}`}>
@@ -313,6 +318,7 @@ const Products: React.FC = () => {
                   )}
                 </div>
 
+                {/* Data */}
                 <div className="pt-3 border-t border-gray-200">
                   <p className="text-xs text-gray-500">
                     {product.createdAt
@@ -332,7 +338,20 @@ const Products: React.FC = () => {
       {!isLoading && filteredProducts.length === 0 && (
         <div className="text-center py-12">
           <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Package className="w-8 h-8 text-gray-400" />
+            {/* Ícone apenas para o estado vazio */}
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="w-8 h-8 text-gray-400"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+            >
+              <path
+                d="M3 7h18M3 12h18M3 17h18"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+            </svg>
           </div>
           <h3 className="text-lg font-medium text-gray-900 mb-2">
             Nenhum produto encontrado
@@ -410,7 +429,7 @@ const Products: React.FC = () => {
 
               {/* Descrição */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block textsm font-medium text-gray-700 mb-1">
                   Descrição *
                 </label>
                 <textarea
@@ -486,7 +505,7 @@ const Products: React.FC = () => {
                       setFormData({ ...formData, unit: e.target.value })
                     }
                     placeholder="ex: metro, unidade"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus-border-transparent"
                     required
                   />
                 </div>
