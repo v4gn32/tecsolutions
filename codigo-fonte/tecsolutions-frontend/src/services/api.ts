@@ -1,7 +1,7 @@
 // Cliente HTTP central com baseURL do .env e token via header
 import axios from "axios";
 
-const baseURL = import.meta.env.VITE_API_URL; // ex.: http://localhost:3000/api
+const baseURL = import.meta.env.VITE_API_URL; // ex.: http://localhost:5000/api
 export const api = axios.create({ baseURL });
 
 // ➕ injeta token do localStorage
