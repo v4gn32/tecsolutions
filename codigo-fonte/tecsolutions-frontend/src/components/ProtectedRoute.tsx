@@ -1,24 +1,22 @@
-import React from 'react';
-import { Navigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
+// src/components/ProtectedRoute.tsx
+// 👉 Protege rotas e (opcional) exige papel específico.
 
-interface ProtectedRouteProps {
+import React from "react";
+import { Navigate } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
+
+export default function ProtectedRoute({
+  children,
+  requireRole,
+}: {
   children: React.ReactNode;
-  adminOnly?: boolean;
+  requireRole?: "ADMIN" | "USER";
+}) {
+  const { user, loading } = useAuth();
+
+  if (loading) return null; // evita flicker enquanto carrega perfil
+  if (!user) return <Navigate to="/login" replace />;
+
+  const ok = !requireRole || user.role === requireRole;
+  return ok ? <>{children}</> : <Navigate to="/dashboard" replace />;
 }
-
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, adminOnly = false }) => {
-  const { isAuthenticated, user } = useAuth();
-
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
-
-  if (adminOnly && user?.role !== 'admin') {
-    return <Navigate to="/dashboard" replace />;
-  }
-
-  return <>{children}</>;
-};
-
-export default ProtectedRoute;

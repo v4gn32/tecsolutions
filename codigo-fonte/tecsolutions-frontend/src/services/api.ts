@@ -1,29 +1,23 @@
-// FRONTEND: axios pré-configurado com baseURL e interceptors
+// Cliente HTTP central com baseURL do .env e token via header
 import axios from "axios";
 
-export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL, // base da API
-  timeout: 20000, // timeout padrão
-});
+const baseURL = import.meta.env.VITE_API_URL; // ex.: http://localhost:3000/api
+export const api = axios.create({ baseURL });
 
-// Anexa token antes de cada request
+// ➕ injeta token do localStorage
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("ts_token"); // lê token salvo
-  if (token) {
-    config.headers = config.headers || {};
-    config.headers.Authorization = `Bearer ${token}`; // envia JWT no header
-  }
+  const token = localStorage.getItem("token");
+  if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 
-// Trata erros globais (401, 403, etc.)
+// Tratamento simples de 401/403
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    // Exemplo: se não autorizado, limpa token e opcionalmente redireciona
-    if (err?.response?.status === 401) {
-      localStorage.removeItem("ts_token");
-    }
+    const s = err?.response?.status;
+    if (s === 401) window.location.href = "/login";
+    if (s === 403) alert("Acesso negado.");
     return Promise.reject(err);
   }
 );

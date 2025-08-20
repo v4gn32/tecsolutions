@@ -1,78 +1,72 @@
 // src/contexts/AuthContext.tsx
-// ✅ Agora usa a API real, mesma interface do seu contexto
+// 👉 Contexto de autenticação: login, logout e perfil.
+//    Normaliza role para MAIÚSCULAS e expõe "loading" para UI.
 
-import React, {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-  ReactNode,
-} from "react";
-import { User, AuthState, LoginCredentials } from "../types/auth";
-import {
-  login as authLogin,
-  logout as authLogout,
-  getCurrentUser,
-  initializeAuth,
-} from "../utils/auth";
+import React, { createContext, useContext, useEffect, useState } from "react";
+import { api } from "../services/api";
+import type { User } from "../types/auth";
 
-interface AuthContextType extends AuthState {
-  login: (credentials: LoginCredentials) => Promise<boolean>;
+type AuthCtx = {
+  user: User | null;
+  loading: boolean;
+  login: (p: { email: string; password: string }) => Promise<boolean>;
   logout: () => void;
-}
-
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
-  return context;
 };
 
-interface AuthProviderProps {
-  children: ReactNode;
-}
+const AuthContext = createContext<AuthCtx>({} as AuthCtx);
 
-export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const [authState, setAuthState] = useState<AuthState>({
-    user: null,
-    isAuthenticated: false,
-  });
+const normRole = (r?: string) =>
+  (r || "").toString().toUpperCase() === "ADMIN" ? "ADMIN" : "USER";
 
-  // 🔄 Inicializa e tenta recuperar sessão existente
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // 🔁 Restaura sessão ao abrir a aplicação
   useEffect(() => {
-    initializeAuth(); // mantido por compatibilidade
-    (async () => {
-      const user = await getCurrentUser(); // <-- agora é async (API)
-      if (user) setAuthState({ user, isAuthenticated: true });
-    })();
+    const boot = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        if (!token) return;
+        const { data } = await api.get("/profile"); // {id,name,email,role}
+        setUser({ ...data, role: normRole(data.role) });
+      } catch {
+        setUser(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+    boot();
   }, []);
 
-  // 🔐 Login usando backend (mantendo retorno boolean)
-  const login = async (credentials: LoginCredentials): Promise<boolean> => {
+  // 🔐 Login
+  const login: AuthCtx["login"] = async (p) => {
     try {
-      const user = await authLogin(credentials); // <-- agora é async
-      if (user) {
-        setAuthState({ user, isAuthenticated: true });
-        return true;
-      }
-      return false;
+      const { data } = await api.post("/login", p); // retorna { token }
+      localStorage.setItem("token", data.token);
+      const { data: profile } = await api.get("/profile");
+      setUser({ ...profile, role: normRole(profile.role) });
+      return true;
     } catch {
+      setUser(null);
       return false;
     }
   };
 
-  // 🚪 Logout limpa token e estado
+  // 🚪 Logout
   const logout = () => {
-    authLogout();
-    setAuthState({ user: null, isAuthenticated: false });
+    localStorage.removeItem("token");
+    setUser(null);
+    window.location.href = "/login";
   };
 
   return (
-    <AuthContext.Provider value={{ ...authState, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
 };
+
+export const useAuth = () => useContext(AuthContext);

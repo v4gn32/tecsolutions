@@ -1,19 +1,12 @@
-// types/auth.ts
-export type Role = "admin" | "tecnico" | "user";
+// src/types/auth.ts
+// 👉 Tipos globais do usuário (ROLE sempre em MAIÚSCULAS)
+export type Role = "ADMIN" | "USER";
 
 export type User = {
   id: string;
   name: string;
   email: string;
-  role: Role;
-};
-
-export type AuthState = {
-  user: User | null;
-  isAuthenticated: boolean;
-};
-
-export type LoginCredentials = {
-  email: string;
-  password: string;
+  role: Role; // <- padrão único
+  createdAt?: string | Date;
+  createdBy?: string;
 };
