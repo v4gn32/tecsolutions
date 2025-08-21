@@ -1,35 +1,24 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { PlusCircle, Search, Edit, Trash2 } from "lucide-react";
-
-// 🔗 Cliente HTTP central (configure tokens/interceptors em ../services/api)
-import { api } from "../services/api";
+// src/pages/Services.tsx
+// Conecta Services ao backend sem alterar layout visual
+import React, { useState, useEffect } from "react";
+import { PlusCircle, Search, Edit, Trash2, Tag } from "lucide-react";
+import { getServices, saveService, deleteService } from "../utils/storage";
 import { Service } from "../types";
 
-// 🏷️ Badge de categoria + mapeadores
-import CategoryBadge from "../components/CategoryBadge";
-import { serviceCategoryLabel, serviceCategoryTone } from "../utils/category";
-
-// 💰 Formatador BRL
-const brl = (v: number) =>
-  (Number(v) || 0).toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  });
-
 const Services: React.FC = () => {
-  // -------------------- Estado base --------------------
+  // --- estado principal -----------------------------------------------------
   const [services, setServices] = useState<Service[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [showModal, setShowModal] = useState(false);
   const [editingService, setEditingService] = useState<Service | null>(null);
 
-  // -------------------- Estado de UI --------------------
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [isSaving, setIsSaving] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
+  // --- controle leve --------------------------------------------------------
+  const [loading, setLoading] = useState(true); // comenta: carregamento da lista
+  const [saving, setSaving] = useState(false); // comenta: salvando no backend
+  const [error, setError] = useState<string | null>(null); // comenta: erro global
 
-  // -------------------- Formulário --------------------
+  // --- form -----------------------------------------------------------------
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -38,7 +27,7 @@ const Services: React.FC = () => {
     unit: "",
   });
 
-  // 📚 Catálogo de categorias (pode vir do backend futuramente)
+  // --- categorias (apenas para rótulos) ------------------------------------
   const categories = [
     { value: "infraestrutura", label: "Infraestrutura" },
     { value: "helpdesk", label: "Helpdesk" },
@@ -48,45 +37,35 @@ const Services: React.FC = () => {
     { value: "outros", label: "Outros" },
   ];
 
-  // -------------------- Carregar serviços (backend) --------------------
-  const loadServices = async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const params: Record<string, string> = {};
-      if (searchTerm.trim()) params.q = searchTerm.trim();
-      if (categoryFilter !== "all") params.category = categoryFilter;
-
-      const { data } = await api.get<Service[]>("/services", { params });
-      setServices(Array.isArray(data) ? data : []);
-    } catch (e: any) {
-      setError("Falha ao carregar serviços. Tente novamente.");
-      setServices([]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
+  // --- carregar do backend --------------------------------------------------
   useEffect(() => {
-    loadServices();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm, categoryFilter]);
+    const load = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await getServices(); // busca no backend
+        setServices(Array.isArray(data) ? data : []);
+      } catch (e) {
+        console.error(e);
+        setError("Falha ao carregar serviços.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
 
-  // -------------------- Filtro local (fallback) --------------------
-  const filteredServices = useMemo(() => {
-    const term = searchTerm.toLowerCase();
-    return (services || []).filter((service) => {
-      const matchesSearch =
-        !term ||
-        service.name?.toLowerCase().includes(term) ||
-        service.description?.toLowerCase().includes(term);
-      const matchesCategory =
-        categoryFilter === "all" || service.category === categoryFilter;
-      return matchesSearch && matchesCategory;
-    });
-  }, [services, searchTerm, categoryFilter]);
+  // --- filtros no front (inalterados) --------------------------------------
+  const filteredServices = services.filter((service) => {
+    const matchesSearch =
+      service.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      service.description.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory =
+      categoryFilter === "all" || service.category === categoryFilter;
+    return matchesSearch && matchesCategory;
+  });
 
-  // -------------------- Helpers --------------------
+  // --- helpers --------------------------------------------------------------
   const resetForm = () => {
     setFormData({
       name: "",
@@ -98,74 +77,88 @@ const Services: React.FC = () => {
     setEditingService(null);
   };
 
-  // -------------------- Submit (Create/Update) --------------------
+  // --- submit (POST/PUT conforme haja id) ----------------------------------
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSaving(true);
-    setError(null);
+
+    // Comentário: se tiver id => update (PUT); senão => create (POST)
+    const payload: Partial<Service> = {
+      ...(editingService?.id ? { id: editingService.id } : {}),
+      ...formData,
+      ...(editingService?.createdAt
+        ? { createdAt: editingService.createdAt }
+        : {}),
+    };
 
     try {
-      if (editingService) {
-        // ✏️ Atualiza serviço
-        await api.put(`/services/${editingService.id}`, { ...formData });
-      } else {
-        // ➕ Cria serviço
-        await api.post("/services", { ...formData });
-      }
-
-      await loadServices();
+      setSaving(true);
+      await saveService(payload as Service); // cria/atualiza
+      const refreshed = await getServices(); // recarrega lista
+      setServices(Array.isArray(refreshed) ? refreshed : []);
       setShowModal(false);
       resetForm();
-    } catch (e: any) {
-      const msg =
-        e?.response?.data?.message ||
-        e?.response?.data?.error ||
-        "Falha ao salvar o serviço. Verifique os campos e tente novamente.";
-      setError(msg);
+    } catch (err) {
+      console.error(err);
+      alert("Não foi possível salvar o serviço.");
     } finally {
-      setIsSaving(false);
+      setSaving(false);
     }
   };
 
-  // -------------------- Editar --------------------
+  // --- editar ---------------------------------------------------------------
   const handleEdit = (service: Service) => {
     setEditingService(service);
     setFormData({
       name: service.name,
       description: service.description,
-      price: Number(service.price) || 0,
+      price: service.price,
       category: service.category,
       unit: service.unit,
     });
     setShowModal(true);
   };
 
-  // -------------------- Excluir --------------------
+  // --- excluir --------------------------------------------------------------
   const handleDelete = async (id: string) => {
     if (!window.confirm("Tem certeza que deseja excluir este serviço?")) return;
-    setError(null);
     try {
-      await api.delete(`/services/${id}`);
-      await loadServices();
-    } catch (e: any) {
-      setError("Falha ao excluir o serviço. Tente novamente.");
+      await deleteService(id); // remove no backend
+      const refreshed = await getServices(); // recarrega lista
+      setServices(Array.isArray(refreshed) ? refreshed : []);
+    } catch (e) {
+      console.error(e);
+      alert("Não foi possível excluir o serviço.");
     }
   };
 
-  // -------------------- Render --------------------
+  // --- util de cor ----------------------------------------------------------
+  const getCategoryColor = (category: string) => {
+    const colors = {
+      infraestrutura: "bg-blue-100 text-blue-800",
+      helpdesk: "bg-green-100 text-green-800",
+      nuvem: "bg-purple-100 text-purple-800",
+      backup: "bg-orange-100 text-orange-800",
+      cabeamento: "bg-yellow-100 text-yellow-800",
+      outros: "bg-gray-100 text-gray-800",
+    };
+    return (colors as any)[category] || colors.outros;
+  };
+
+  // --- feedback de carregamento/erro ---------------------------------------
+  if (loading)
+    return <div className="p-6 text-gray-500">Carregando serviços…</div>;
+  if (error) return <div className="p-6 text-red-600">{error}</div>;
+
   return (
     <div className="space-y-6">
-      {/* ==================== Header ==================== */}
+      {/* Header (inalterado) */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Serviços</h1>
           <p className="text-gray-600">Gerencie seu catálogo de serviços</p>
         </div>
         <button
-          onClick={() => {
-            resetForm();
-            setShowModal(true);
-          }}
+          onClick={() => setShowModal(true)}
           className="inline-flex items-center px-4 py-2 bg-cyan-600 text-white text-sm font-medium rounded-lg hover:bg-cyan-700 transition-colors duration-200"
         >
           <PlusCircle className="w-4 h-4 mr-2" />
@@ -173,17 +166,9 @@ const Services: React.FC = () => {
         </button>
       </div>
 
-      {/* ==================== Alertas ==================== */}
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-2 text-sm">
-          {error}
-        </div>
-      )}
-
-      {/* ==================== Filtros ==================== */}
+      {/* Filtros (inalterados) */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="flex flex-col sm:flex-row gap-4">
-          {/* Busca */}
           <div className="flex-1">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
@@ -196,7 +181,6 @@ const Services: React.FC = () => {
               />
             </div>
           </div>
-          {/* Categoria */}
           <div className="sm:w-48">
             <select
               value={categoryFilter}
@@ -214,81 +198,69 @@ const Services: React.FC = () => {
         </div>
       </div>
 
-      {/* ==================== Grid ==================== */}
-      {isLoading ? (
-        <div className="text-sm text-gray-500">Carregando serviços...</div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredServices.map((service) => (
-            <div
-              key={service.id}
-              className="bg-white rounded-lg shadow-sm border border-gray-200 p-6"
-            >
-              {/* Cabeçalho do card */}
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex-1">
-                  {/* 🏷️ Título */}
-                  <h3 className="text-lg font-medium text-gray-900">
-                    {service.name}
-                  </h3>
-
-                  {/* 🔹 Badge de CATEGORIA logo abaixo do título */}
-                  <CategoryBadge
-                    label={serviceCategoryLabel(service.category)}
-                    tone={serviceCategoryTone(service.category)}
-                    className="mt-2"
-                  />
-                </div>
-
-                {/* Ações */}
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() => handleEdit(service)}
-                    className="text-gray-400 hover:text-gray-600 p-1"
-                    title="Editar"
-                  >
-                    <Edit className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(service.id)}
-                    className="text-gray-400 hover:text-red-600 p-1"
-                    title="Excluir"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
+      {/* Grid (inalterado) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {filteredServices.map((service) => (
+          <div
+            key={service.id}
+            className="bg-white rounded-lg shadow-sm border border-gray-200 p-6"
+          >
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex-1">
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  {service.name}
+                </h3>
+                <span
+                  className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getCategoryColor(
+                    service.category
+                  )}`}
+                >
+                  <Tag className="w-3 h-3 mr-1" />
+                  {categories.find((c) => c.value === service.category)?.label}
+                </span>
               </div>
-
-              {/* Descrição */}
-              <p className="text-sm text-gray-600 mb-4 line-clamp-3">
-                {service.description}
-              </p>
-
-              {/* Preço + unidade + data */}
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-lg font-semibold text-gray-900">
-                    {brl(Number(service.price))}
-                  </p>
-                  <p className="text-xs text-gray-500">por {service.unit}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs text-gray-500">
-                    {service.createdAt
-                      ? `Criado em ${new Date(
-                          service.createdAt as any
-                        ).toLocaleDateString("pt-BR")}`
-                      : "—"}
-                  </p>
-                </div>
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => handleEdit(service)}
+                  className="text-gray-400 hover:text-gray-600 p-1"
+                >
+                  <Edit className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => handleDelete(service.id)}
+                  className="text-gray-400 hover:text-red-600 p-1"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </div>
             </div>
-          ))}
-        </div>
-      )}
 
-      {/* ==================== Estado vazio ==================== */}
-      {!isLoading && filteredServices.length === 0 && (
+            <p className="text-sm text-gray-600 mb-4 line-clamp-3">
+              {service.description}
+            </p>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-lg font-semibold text-gray-900">
+                  R$ {service.price.toFixed(2)}
+                </p>
+                <p className="text-xs text-gray-500">por {service.unit}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-gray-500">
+                  Criado em{" "}
+                  {new Date(service.createdAt as any).toLocaleDateString(
+                    "pt-BR"
+                  )}
+                </p>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Empty state (inalterado) */}
+      {filteredServices.length === 0 && (
         <div className="text-center py-12">
           <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <Search className="w-8 h-8 text-gray-400" />
@@ -303,10 +275,7 @@ const Services: React.FC = () => {
           </p>
           {!searchTerm && categoryFilter === "all" && (
             <button
-              onClick={() => {
-                resetForm();
-                setShowModal(true);
-              }}
+              onClick={() => setShowModal(true)}
               className="inline-flex items-center px-4 py-2 bg-cyan-600 text-white text-sm font-medium rounded-lg hover:bg-cyan-700 transition-colors duration-200"
             >
               <PlusCircle className="w-4 h-4 mr-2" />
@@ -316,7 +285,7 @@ const Services: React.FC = () => {
         </div>
       )}
 
-      {/* ==================== Modal (Criar/Editar) ==================== */}
+      {/* Modal (layout preservado) */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
@@ -327,7 +296,7 @@ const Services: React.FC = () => {
             </div>
 
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
-              {/* Nome */}
+              {/* campos do formulário (inalterados) */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Nome do Serviço *
@@ -343,7 +312,6 @@ const Services: React.FC = () => {
                 />
               </div>
 
-              {/* Categoria */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Categoria *
@@ -367,7 +335,6 @@ const Services: React.FC = () => {
                 </select>
               </div>
 
-              {/* Descrição */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Descrição *
@@ -383,7 +350,6 @@ const Services: React.FC = () => {
                 />
               </div>
 
-              {/* Preço + Unidade */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -421,7 +387,6 @@ const Services: React.FC = () => {
                 </div>
               </div>
 
-              {/* Ações do modal */}
               <div className="flex justify-end space-x-3 pt-4">
                 <button
                   type="button"
@@ -435,11 +400,11 @@ const Services: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  disabled={isSaving}
-                  className="px-4 py-2 bg-cyan-600 text-white text-sm font-medium rounded-lg hover:bg-cyan-700 transition-colors duration-200 disabled:opacity-70"
+                  disabled={saving} // comenta: evita duplo clique
+                  className="px-4 py-2 bg-cyan-600 text-white text-sm font-medium rounded-lg hover:bg-cyan-700 transition-colors duration-200 disabled:opacity-60"
                 >
-                  {isSaving
-                    ? "Salvando..."
+                  {saving
+                    ? "Salvando…"
                     : editingService
                     ? "Atualizar"
                     : "Cadastrar"}

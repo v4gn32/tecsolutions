@@ -1,72 +1,118 @@
 // src/contexts/AuthContext.tsx
-// 👉 Contexto de autenticação: login, logout e perfil.
-//    Normaliza role para MAIÚSCULAS e expõe "loading" para UI.
+// ✅ Contexto de autenticação robusto com tratamento de erros e sessão persistida
 
-import React, { createContext, useContext, useEffect, useState } from "react";
-import { api } from "../services/api";
-import type { User } from "../types/auth";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  ReactNode,
+} from "react";
+import { User, AuthState, LoginCredentials } from "../types/auth";
 
-type AuthCtx = {
-  user: User | null;
-  loading: boolean;
-  login: (p: { email: string; password: string }) => Promise<boolean>;
+// 🔗 Funções reais do backend (utils/auth deve salvar/ler token)
+import {
+  login as apiLogin, // POST /auth/login -> { token, user }
+  logout as apiLogout, // Limpa token local
+  getProfile, // GET /auth/me ou /auth/profile -> user
+  isAuthenticated as hasToken, // Verifica se há token salvo
+} from "../utils/auth";
+
+interface AuthContextType extends AuthState {
+  // 🔐 Ações disponíveis no app
+  login: (credentials: LoginCredentials) => Promise<boolean>;
   logout: () => void;
+  loading: boolean; // indica bootstrap / chamadas em progresso
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+// 📦 Hook de consumo
+export const useAuth = () => {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error("useAuth must be used within an AuthProvider");
+  return ctx;
 };
 
-const AuthContext = createContext<AuthCtx>({} as AuthCtx);
+interface AuthProviderProps {
+  children: ReactNode;
+}
 
-const normRole = (r?: string) =>
-  (r || "").toString().toUpperCase() === "ADMIN" ? "ADMIN" : "USER";
+export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+  // 🧠 Estado central
+  const [authState, setAuthState] = useState<AuthState>({
+    user: null,
+    isAuthenticated: false,
+  });
+  const [loading, setLoading] = useState<boolean>(true); // controla tela em branco
+  const mounted = useRef(true); // evita setState após unmount
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
-  children,
-}) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  // 🔁 Restaura sessão ao abrir a aplicação
   useEffect(() => {
-    const boot = async () => {
+    // 🔄 Bootstrap: restaura sessão se houver token
+    const bootstrap = async () => {
       try {
-        const token = localStorage.getItem("token");
-        if (!token) return;
-        const { data } = await api.get("/profile"); // {id,name,email,role}
-        setUser({ ...data, role: normRole(data.role) });
+        if (!hasToken()) {
+          setAuthState({ user: null, isAuthenticated: false });
+          return;
+        }
+        const user = await getProfile(); // tenta validar token
+        if (user) {
+          setAuthState({ user, isAuthenticated: true });
+        } else {
+          // Token inválido/expirado → força logout
+          apiLogout();
+          setAuthState({ user: null, isAuthenticated: false });
+        }
       } catch {
-        setUser(null);
+        // Qualquer erro de rede/parse → limpa sessão para não travar a UI
+        apiLogout();
+        setAuthState({ user: null, isAuthenticated: false });
       } finally {
-        setLoading(false);
+        if (mounted.current) setLoading(false);
       }
     };
-    boot();
+
+    bootstrap();
+    return () => {
+      mounted.current = false;
+    };
   }, []);
 
-  // 🔐 Login
-  const login: AuthCtx["login"] = async (p) => {
+  // 🔑 Executa login no backend e atualiza o estado
+  const login = async (credentials: LoginCredentials): Promise<boolean> => {
+    setLoading(true);
     try {
-      const { data } = await api.post("/login", p); // retorna { token }
-      localStorage.setItem("token", data.token);
-      const { data: profile } = await api.get("/profile");
-      setUser({ ...profile, role: normRole(profile.role) });
+      // apiLogin deve salvar o token internamente (utils/auth)
+      const data = await apiLogin(credentials); // { token, user? }
+      // 🔁 Garante dados atualizados do perfil
+      const profile: User = (await getProfile()) || data?.user;
+      if (!profile) throw new Error("Perfil não encontrado após login");
+
+      setAuthState({ user: profile, isAuthenticated: true });
       return true;
     } catch {
-      setUser(null);
+      // Falha no login → zera sessão
+      apiLogout();
+      setAuthState({ user: null, isAuthenticated: false });
       return false;
+    } finally {
+      setLoading(false);
     }
   };
 
-  // 🚪 Logout
+  // 🚪 Limpa token e estado
   const logout = () => {
-    localStorage.removeItem("token");
-    setUser(null);
-    window.location.href = "/login";
+    apiLogout();
+    setAuthState({ user: null, isAuthenticated: false });
   };
 
-  return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
-      {children}
-    </AuthContext.Provider>
+  // 🧩 Evita recriar objeto do contexto a cada render
+  const value = useMemo(
+    () => ({ ...authState, login, logout, loading }),
+    [authState, loading]
   );
-};
 
-export const useAuth = () => useContext(AuthContext);
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+};

@@ -1,114 +1,122 @@
 // src/utils/auth.ts
-// 🔐 Camada de autenticação + utilidades de usuário (admin)
-// Mantém compatibilidade com o AuthContext e adiciona getUsers/saveUser/deleteUser.
+// Comentário: util de autenticação + CRUD de usuários via backend
 
-// ⬇️ Importa o client HTTP e tipos
-import { api } from "../services/api";
-import { User, LoginCredentials } from "../types/auth";
+import type { User, LoginCredentials, LoginResponse } from "../types/auth";
 
-const TOKEN_KEY = "ts_token"; // chave do token no localStorage
+// 🔧 Constantes (uma vez só)
+const API = import.meta.env.VITE_API_URL ?? "";
+const AUTH_STORAGE_KEY = "tecsolutions_auth";
+const TOKEN_STORAGE_KEY = "tecsolutions_token";
 
-// ⚙️ Aplica o token atual (se existir) no header Authorization do axios
-function applyTokenToApi() {
-  const token = localStorage.getItem(TOKEN_KEY);
-  if (token) {
-    api.defaults.headers.common.Authorization = `Bearer ${token}`;
-  } else {
-    delete api.defaults.headers.common.Authorization;
-  }
-}
+// 🔧 Helpers de token
+const getToken = () => localStorage.getItem(TOKEN_STORAGE_KEY);
+const setToken = (t: string) => localStorage.setItem(TOKEN_STORAGE_KEY, t);
+const removeToken = () => localStorage.removeItem(TOKEN_STORAGE_KEY);
 
-/* --------------------------------- AUTENTICAÇÃO --------------------------------- */
+// 🔧 Headers autenticados (FALTAVA)
+const authHeaders = () => {
+  const token = getToken();
+  return {
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+};
 
-// ▶️ Inicializa auth (ex.: ao carregar o app) — aplica o token salvo no header
-export function initializeAuth() {
-  applyTokenToApi();
-}
+// ================= AUTH =================
 
-// 🚪 Logout: remove token e limpa o header Authorization
-export function logout() {
-  localStorage.removeItem(TOKEN_KEY);
-  applyTokenToApi();
-}
-
-// ▶️ Login real: POST /auth/login -> salva token -> GET /auth/profile
+// Login -> salva token + user
 export async function login(
   credentials: LoginCredentials
 ): Promise<User | null> {
-  // 🔸 Envia credenciais para o backend
-  const { data } = await api.post("/auth/login", credentials); // { token }
-  // 🔸 Persiste token e configura header
-  localStorage.setItem(TOKEN_KEY, data.token);
-  applyTokenToApi();
-  // 🔸 Busca dados do usuário logado
-  const me = await getCurrentUser();
-  return me;
+  const res = await fetch(`${API}/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(credentials),
+  });
+  if (!res.ok) return null;
+
+  const data: LoginResponse = await res.json();
+  setToken(data.token);
+  localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(data.user));
+  return data.user;
 }
 
-// 👤 Perfil atual: GET /auth/profile (se token válido); senão retorna null
-export async function getCurrentUser(): Promise<User | null> {
-  const token = localStorage.getItem(TOKEN_KEY);
+// Logout: apenas limpa token+user
+export function logout() {
+  removeToken();
+  localStorage.removeItem(AUTH_STORAGE_KEY);
+}
+
+// Perfil do usuário autenticado
+export async function getProfile(): Promise<User | null> {
+  const token = getToken();
   if (!token) return null;
 
-  try {
-    const { data } = await api.get("/auth/profile");
-    const user: User = {
-      id: data.id,
-      name: data.name,
-      email: data.email,
-      role: data.role, // 'admin' | 'tecnico' | 'user'
-    };
-    return user;
-  } catch {
-    // 🔸 Token inválido/expirado: limpa token e header
-    localStorage.removeItem(TOKEN_KEY);
-    applyTokenToApi();
+  const res = await fetch(`${API}/auth/me`, { headers: authHeaders() }); // <-- /auth/me
+  if (res.status === 401) {
+    logout();
     return null;
   }
+  if (!res.ok) throw new Error("Falha ao obter perfil");
+  const { user } = (await res.json()) as { user: User };
+  localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
+  return user;
 }
 
-/* --------------------------------- USUÁRIOS (ADMIN) --------------------------------- */
-// Obs.: Ajuste os tipos conforme seu backend. Abaixo usamos tipos genéricos mínimos.
+// ================= USERS (Admin) =================
 
-// Tipo mínimo para criação/edição de usuário (ajuste se necessário)
-export type UpsertUserDTO = {
-  id?: string; // se existir, edita; se não, cria
-  name: string;
-  email: string;
-  password?: string; // opcional para edição
-  role?: "admin" | "tecnico" | "user";
+// Lista usuários
+export const getUsers = async (): Promise<User[]> => {
+  const res = await fetch(`${API}/users`, { headers: authHeaders() });
+  if (!res.ok) throw new Error("Falha ao carregar usuários");
+  const data = await res.json();
+  return Array.isArray(data) ? data : [];
 };
 
-// 📄 Lista de usuários (GET /users)
-export async function getUsers(params?: Record<string, any>): Promise<User[]> {
-  // 💡 params permite filtros (ex.: ?search=...&role=...)
-  const { data } = await api.get("/users", { params });
-  return data;
-}
+// Cria/atualiza usuário (POST se novo, PUT se tiver id)
+export const saveUser = async (
+  user: Partial<User> & { password?: string }
+): Promise<User> => {
+  const hasId = Boolean(user.id);
+  const url = hasId ? `${API}/users/${user.id}` : `${API}/users`;
+  const method = hasId ? "PUT" : "POST";
 
-// 💾 Cria ou atualiza um usuário (POST ou PUT)
-export async function saveUser(payload: UpsertUserDTO): Promise<User> {
-  if (payload.id) {
-    // ✏️ Atualiza
-    const { id, ...rest } = payload;
-    const { data } = await api.put(`/users/${id}`, rest);
-    return data;
-  } else {
-    // ➕ Cria
-    const { data } = await api.post("/users", payload);
-    return data;
-  }
-}
+  const res = await fetch(url, {
+    method,
+    headers: authHeaders(),
+    body: JSON.stringify(user),
+  });
+  if (!res.ok) throw new Error("Falha ao salvar usuário");
+  return res.json();
+};
 
-// 🗑️ Remove um usuário (DELETE /users/:id)
-export async function deleteUser(id: string): Promise<{ success: boolean }> {
-  await api.delete(`/users/${id}`);
-  return { success: true };
-}
+// ❗️EXPORT QUE ESTAVA FALTANDO
+export const deleteUser = async (id: string): Promise<boolean> => {
+  const res = await fetch(`${API}/users/${id}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error("Falha ao excluir usuário");
+  return true;
+};
 
-/* --------------------------------- UTILIDADES --------------------------------- */
+// ================= Helpers de estado =================
+export const getCurrentUser = (): User | null => {
+  const data = localStorage.getItem(AUTH_STORAGE_KEY);
+  return data ? (JSON.parse(data) as User) : null;
+};
 
-// 🔎 Retorna o token atual (caso precise em algum ponto específico)
-export function getToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY);
-}
+export const isAuthenticated = (): boolean => !!getToken();
+export const isAdmin = (): boolean => getCurrentUser()?.role === "admin";
+
+// initializeAuth agora é no-op (backend cuida)
+export const initializeAuth = (): void => {};
+
+// ⬇️ adicione/garanta isto (exportado)
+export const getAuthHeaders = () => {
+  const token = localStorage.getItem("tecsolutions_token"); // Comentário: lê token salvo
+  return {
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+};

@@ -1,8 +1,13 @@
-import React, { useEffect, useState } from "react";
+// Conecta criação de propostas ao backend (sem mocks e sem mudar layout)
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { PlusCircle, Trash2, Save, Send, Download } from "lucide-react";
-// 🔗 API central (token em memória via interceptor)
-import { api } from "../services/api";
+import {
+  getClients,
+  getServices,
+  getProducts,
+  saveProposal,
+} from "../utils/storage";
 import { generateProposalPDF } from "../utils/pdfGenerator";
 import {
   Client,
@@ -17,68 +22,63 @@ import {
 const NewProposal: React.FC = () => {
   const navigate = useNavigate();
 
-  // -------------------- Estados de dados (vindos do backend) --------------------
+  // --- estados base ---------------------------------------------------------
   const [clients, setClients] = useState<Client[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState<boolean>(true); // comentário: carregamento inicial
+  const [saving, setSaving] = useState<boolean>(false); // comentário: estado ao salvar
 
-  // -------------------- Estados de UI --------------------
-  const [isLoading, setIsLoading] = useState<boolean>(false); // loading listas
-  const [isSaving, setIsSaving] = useState<boolean>(false); // loading submit
-  const [error, setError] = useState<string | null>(null); // mensagem de erro
-
-  // -------------------- Formulário --------------------
   const [formData, setFormData] = useState({
     clientId: "",
     title: "",
     description: "",
     discount: 0,
-    // default = hoje + 30 dias (aaaa-mm-dd)
     validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
       .toISOString()
       .split("T")[0],
     notes: "",
   });
 
-  // -------------------- Itens (serviços/produtos) --------------------
   const [items, setItems] = useState<ProposalItem[]>([]);
   const [productItems, setProductItems] = useState<ProposalProductItem[]>([]);
 
-  // ==================== Carregar listas do backend ====================
+  // --- carregar catálogos do backend ---------------------------------------
   useEffect(() => {
-    const loadAll = async () => {
-      setIsLoading(true);
-      setError(null);
+    const load = async () => {
       try {
-        const [cRes, sRes, pRes] = await Promise.all([
-          api.get<Client[]>("/clients"),
-          api.get<Service[]>("/services"),
-          api.get<Product[]>("/products"),
+        setLoading(true);
+        const [c, s, p] = await Promise.all([
+          getClients(),
+          getServices(),
+          getProducts(),
         ]);
-        setClients(Array.isArray(cRes.data) ? cRes.data : []);
-        setServices(Array.isArray(sRes.data) ? sRes.data : []);
-        setProducts(Array.isArray(pRes.data) ? pRes.data : []);
-      } catch (e: any) {
-        setError(
-          "Falha ao carregar clientes/serviços/produtos. Tente novamente."
-        );
+        setClients(Array.isArray(c) ? c : []);
+        setServices(Array.isArray(s) ? s : []);
+        setProducts(Array.isArray(p) ? p : []);
+      } catch (e) {
+        console.error("Erro ao carregar catálogos:", e);
       } finally {
-        setIsLoading(false);
+        setLoading(false);
       }
     };
-    loadAll();
+    load();
   }, []);
 
-  // ==================== Utilitários de itens (Serviços) ====================
-  // # Adiciona um item de serviço
+  // --- helpers de itens -----------------------------------------------------
   const addItem = () => {
-    setItems((prev) => [
-      ...prev,
+    setItems([
+      ...items,
       { serviceId: "", quantity: 1, unitPrice: 0, total: 0 },
     ]);
   };
+  const addProductItem = () => {
+    setProductItems([
+      ...productItems,
+      { productId: "", quantity: 1, unitPrice: 0, total: 0 },
+    ]);
+  };
 
-  // # Atualiza um item de serviço e recalcula total
   const updateItem = (
     index: number,
     field: keyof ProposalItem,
@@ -87,36 +87,20 @@ const NewProposal: React.FC = () => {
     const newItems = [...items];
     newItems[index] = { ...newItems[index], [field]: value };
 
+    // comentário: quando muda serviço, preenche preço; quando muda qtd/preço, recalcula total
     if (field === "serviceId") {
       const service = services.find((s) => s.id === value);
       if (service) {
-        newItems[index].unitPrice = Number(service.price) || 0;
-        newItems[index].total =
-          newItems[index].quantity * (Number(service.price) || 0);
+        newItems[index].unitPrice = service.price;
+        newItems[index].total = newItems[index].quantity * service.price;
       }
     } else if (field === "quantity" || field === "unitPrice") {
       newItems[index].total =
-        (Number(newItems[index].quantity) || 0) *
-        (Number(newItems[index].unitPrice) || 0);
+        newItems[index].quantity * newItems[index].unitPrice;
     }
-
     setItems(newItems);
   };
 
-  // # Remove item de serviço
-  const removeItem = (index: number) =>
-    setItems(items.filter((_, i) => i !== index));
-
-  // ==================== Utilitários de itens (Produtos) ====================
-  // # Adiciona um item de produto
-  const addProductItem = () => {
-    setProductItems((prev) => [
-      ...prev,
-      { productId: "", quantity: 1, unitPrice: 0, total: 0 },
-    ]);
-  };
-
-  // # Atualiza um item de produto e recalcula total
   const updateProductItem = (
     index: number,
     field: keyof ProposalProductItem,
@@ -125,123 +109,109 @@ const NewProposal: React.FC = () => {
     const newItems = [...productItems];
     newItems[index] = { ...newItems[index], [field]: value };
 
+    // comentário: quando muda produto, preenche preço; quando muda qtd/preço, recalcula total
     if (field === "productId") {
       const product = products.find((p) => p.id === value);
       if (product) {
-        newItems[index].unitPrice = Number(product.price) || 0;
-        newItems[index].total =
-          newItems[index].quantity * (Number(product.price) || 0);
+        newItems[index].unitPrice = product.price;
+        newItems[index].total = newItems[index].quantity * product.price;
       }
     } else if (field === "quantity" || field === "unitPrice") {
       newItems[index].total =
-        (Number(newItems[index].quantity) || 0) *
-        (Number(newItems[index].unitPrice) || 0);
+        newItems[index].quantity * newItems[index].unitPrice;
     }
-
     setProductItems(newItems);
   };
 
-  // # Remove item de produto
+  const removeItem = (index: number) =>
+    setItems(items.filter((_, i) => i !== index));
   const removeProductItem = (index: number) =>
     setProductItems(productItems.filter((_, i) => i !== index));
 
-  // ==================== Cálculos ====================
+  // --- totais ---------------------------------------------------------------
   const servicesSubtotal = items.reduce(
-    (sum, item) => sum + (Number(item.total) || 0),
+    (sum, item) => sum + (item.total || 0),
     0
   );
   const productsSubtotal = productItems.reduce(
-    (sum, item) => sum + (Number(item.total) || 0),
+    (sum, item) => sum + (item.total || 0),
     0
   );
   const subtotal = servicesSubtotal + productsSubtotal;
-  const total = Math.max(0, subtotal - (Number(formData.discount) || 0));
+  const total = subtotal - (formData.discount || 0);
 
-  // ==================== Helpers ====================
-  // # Gera número de proposta no cliente (o backend pode sobrescrever)
+  // --- numeração (opcional: backend pode gerar também) ----------------------
   const generateProposalNumber = () => {
     const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, "0");
-    const day = String(now.getDate()).padStart(2, "0");
-    const random = Math.floor(Math.random() * 1000)
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, "0");
+    const d = String(now.getDate()).padStart(2, "0");
+    const r = Math.floor(Math.random() * 1000)
       .toString()
       .padStart(3, "0");
-    return `PROP-${year}${month}${day}-${random}`;
+    return `PROP-${y}${m}${d}-${r}`;
   };
 
-  // ==================== Salvar/Enviar Proposta ====================
-  // # Valida campos obrigatórios
-  const validateRequired = () => {
-    return (
-      !!formData.clientId &&
-      !!formData.title &&
-      (items.length > 0 || productItems.length > 0)
-    );
-  };
-
-  // # Salva no backend com status informado
+  // --- salvar/enviar proposta (POST no backend) -----------------------------
   const handleSave = async (status: "rascunho" | "enviada") => {
-    if (!validateRequired()) {
+    if (
+      !formData.clientId ||
+      !formData.title ||
+      (items.length === 0 && productItems.length === 0)
+    ) {
       alert(
-        "Preencha os obrigatórios e adicione ao menos 1 serviço ou produto."
+        "Preencha os campos obrigatórios e adicione ao menos um serviço ou produto."
       );
       return;
     }
 
-    setIsSaving(true);
-    setError(null);
+    // comentário: payload para o backend (sem id; backend cria id/createdAt/updatedAt)
+    const payload: Partial<Proposal> = {
+      clientId: formData.clientId,
+      number: generateProposalNumber(), // se o backend gerar, ele pode ignorar este campo
+      title: formData.title,
+      description: formData.description,
+      items,
+      productItems,
+      subtotal,
+      discount: formData.discount,
+      total,
+      status,
+      validUntil: new Date(formData.validUntil) as any,
+      notes: formData.notes,
+    };
 
     try {
-      const payload: Omit<
-        Proposal,
-        "id" | "createdAt" | "updatedAt" | "number"
-      > & {
-        number?: string;
-      } = {
-        clientId: formData.clientId,
-        number: generateProposalNumber(), // o backend pode ignorar e gerar o próprio
-        title: formData.title,
-        description: formData.description,
-        items,
-        productItems,
-        subtotal,
-        discount: Number(formData.discount) || 0,
-        total,
-        status,
-        validUntil: new Date(formData.validUntil) as any,
-        notes: formData.notes,
-      };
+      setSaving(true);
+      const saved = await saveProposal(payload as any); // comentário: storage.ts decide POST/PUT
+      if (!saved) throw new Error("Falha ao salvar");
 
-      // POST /proposals cria e retorna { id, number, ... }
-      await api.post("/proposals", payload);
-
-      alert(
-        status === "enviada"
-          ? "Proposta enviada com sucesso!"
-          : "Proposta salva como rascunho!"
-      );
+      if (status === "enviada") {
+        alert("Proposta enviada com sucesso!");
+      } else {
+        alert("Proposta salva como rascunho!");
+      }
       navigate("/proposals");
-    } catch (e: any) {
-      const msg =
-        e?.response?.data?.message ||
-        e?.response?.data?.error ||
-        "Falha ao salvar a proposta. Tente novamente.";
-      setError(msg);
+    } catch (e) {
+      console.error(e);
+      alert("Não foi possível salvar a proposta.");
     } finally {
-      setIsSaving(false);
+      setSaving(false);
     }
   };
 
-  // ==================== Gerar PDF local (sem persistir) ====================
+  // --- gerar PDF (apenas local, sem backend) --------------------------------
   const handleGeneratePDF = () => {
-    if (!validateRequired()) {
+    if (
+      !formData.clientId ||
+      !formData.title ||
+      (items.length === 0 && productItems.length === 0)
+    ) {
       alert(
-        "Preencha os obrigatórios e adicione ao menos 1 serviço ou produto."
+        "Preencha os campos obrigatórios e adicione ao menos um serviço ou produto."
       );
       return;
     }
-
     const client = clients.find((c) => c.id === formData.clientId);
     if (!client) return;
 
@@ -254,7 +224,7 @@ const NewProposal: React.FC = () => {
       items,
       productItems,
       subtotal,
-      discount: Number(formData.discount) || 0,
+      discount: formData.discount,
       total,
       status: "rascunho",
       validUntil: new Date(formData.validUntil),
@@ -269,9 +239,17 @@ const NewProposal: React.FC = () => {
     generateProposalPDF(proposalWithDetails);
   };
 
+  if (loading) {
+    return (
+      <div className="w-full h-full flex items-center justify-center">
+        <span className="text-sm opacity-70">Carregando catálogos…</span>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      {/* ==================== Header ==================== */}
+      {/* Header */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Nova Proposta</h1>
         <p className="text-gray-600">
@@ -279,24 +257,13 @@ const NewProposal: React.FC = () => {
         </p>
       </div>
 
-      {/* ==================== Alertas ==================== */}
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-2 text-sm">
-          {error}
-        </div>
-      )}
-      {isLoading && (
-        <div className="text-sm text-gray-500">Carregando dados...</div>
-      )}
-
-      {/* ==================== Informações Básicas ==================== */}
+      {/* Informações Básicas */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <h2 className="text-lg font-medium text-gray-900 mb-4">
           Informações Básicas
         </h2>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Cliente */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Cliente *
@@ -318,7 +285,6 @@ const NewProposal: React.FC = () => {
             </select>
           </div>
 
-          {/* Validade */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Válida até *
@@ -335,7 +301,6 @@ const NewProposal: React.FC = () => {
           </div>
         </div>
 
-        {/* Título */}
         <div className="mt-6">
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Título da Proposta *
@@ -352,7 +317,6 @@ const NewProposal: React.FC = () => {
           />
         </div>
 
-        {/* Descrição */}
         <div className="mt-6">
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Descrição
@@ -369,7 +333,11 @@ const NewProposal: React.FC = () => {
         </div>
       </div>
 
-      {/* ==================== Serviços ==================== */}
+      {/* Serviços */}
+      {/* (UI original mantida) */}
+      {/* ... código de serviços e produtos permanece igual ao seu (com comentários acima) ... */}
+
+      {/* Serviços */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-medium text-gray-900">Serviços</h2>
@@ -391,7 +359,6 @@ const NewProposal: React.FC = () => {
                   key={index}
                   className="grid grid-cols-12 gap-4 items-end p-4 border border-gray-200 rounded-lg"
                 >
-                  {/* Serviço */}
                   <div className="col-span-12 md:col-span-5">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Serviço
@@ -417,7 +384,6 @@ const NewProposal: React.FC = () => {
                     )}
                   </div>
 
-                  {/* Qtd */}
                   <div className="col-span-4 md:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Qtd
@@ -437,7 +403,6 @@ const NewProposal: React.FC = () => {
                     />
                   </div>
 
-                  {/* Valor Unit. */}
                   <div className="col-span-4 md:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Valor Unit.
@@ -458,22 +423,19 @@ const NewProposal: React.FC = () => {
                     />
                   </div>
 
-                  {/* Total */}
                   <div className="col-span-3 md:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Total
                     </label>
                     <div className="px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-gray-900">
-                      R$ {Number(item.total).toFixed(2)}
+                      R$ {item.total.toFixed(2)}
                     </div>
                   </div>
 
-                  {/* Remover */}
                   <div className="col-span-1">
                     <button
                       onClick={() => removeItem(index)}
                       className="p-2 text-red-600 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors duration-200"
-                      title="Remover serviço"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -506,7 +468,7 @@ const NewProposal: React.FC = () => {
         )}
       </div>
 
-      {/* ==================== Produtos ==================== */}
+      {/* Produtos */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-medium text-gray-900">Produtos</h2>
@@ -528,7 +490,6 @@ const NewProposal: React.FC = () => {
                   key={index}
                   className="grid grid-cols-12 gap-4 items-end p-4 border border-purple-200 rounded-lg bg-purple-50"
                 >
-                  {/* Produto */}
                   <div className="col-span-12 md:col-span-5">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Produto
@@ -556,7 +517,6 @@ const NewProposal: React.FC = () => {
                     )}
                   </div>
 
-                  {/* Qtd */}
                   <div className="col-span-4 md:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Qtd
@@ -576,7 +536,6 @@ const NewProposal: React.FC = () => {
                     />
                   </div>
 
-                  {/* Valor Unit. */}
                   <div className="col-span-4 md:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Valor Unit.
@@ -597,22 +556,19 @@ const NewProposal: React.FC = () => {
                     />
                   </div>
 
-                  {/* Total */}
                   <div className="col-span-3 md:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Total
                     </label>
                     <div className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-900">
-                      R$ {Number(item.total).toFixed(2)}
+                      R$ {item.total.toFixed(2)}
                     </div>
                   </div>
 
-                  {/* Remover */}
                   <div className="col-span-1">
                     <button
                       onClick={() => removeProductItem(index)}
-                      className="p-2 text-red-600 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors duration-200"
-                      title="Remover produto"
+                      className="p-2 text-red-600 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors duração-200"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -625,8 +581,8 @@ const NewProposal: React.FC = () => {
           <div className="text-center py-8 border-2 border-dashed border-purple-300 rounded-lg bg-purple-50">
             <p className="text-gray-500 mb-2">Nenhum produto adicionado</p>
             <button
-              className="text-purple-600 hover:text-purple-500 font-medium"
               onClick={addProductItem}
+              className="text-purple-600 hover:text-purple-500 font-medium"
             >
               Adicionar primeiro produto
             </button>
@@ -645,10 +601,9 @@ const NewProposal: React.FC = () => {
         )}
       </div>
 
-      {/* ==================== Totais e Ações ==================== */}
+      {/* Totais e Ações */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Observações */}
           <div>
             <h3 className="text-lg font-medium text-gray-900 mb-4">
               Observações
@@ -664,7 +619,6 @@ const NewProposal: React.FC = () => {
             />
           </div>
 
-          {/* Totais */}
           <div>
             <h3 className="text-lg font-medium text-gray-900 mb-4">Totais</h3>
             <div className="space-y-3">
@@ -724,7 +678,6 @@ const NewProposal: React.FC = () => {
 
         {/* Botões de ação */}
         <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-end">
-          {/* Gerar PDF local */}
           <button
             onClick={handleGeneratePDF}
             className="inline-flex items-center justify-center px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors duration-200"
@@ -733,24 +686,22 @@ const NewProposal: React.FC = () => {
             Gerar PDF
           </button>
 
-          {/* Salvar rascunho (POST /proposals) */}
           <button
+            disabled={saving}
             onClick={() => handleSave("rascunho")}
-            disabled={isSaving}
-            className="inline-flex items-center justify-center px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors duration-200 disabled:opacity-70"
+            className="inline-flex items-center justify-center px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors duration-200 disabled:opacity-60"
           >
             <Save className="w-4 h-4 mr-2" />
-            {isSaving ? "Salvando..." : "Salvar Rascunho"}
+            {saving ? "Salvando…" : "Salvar Rascunho"}
           </button>
 
-          {/* Enviar proposta (POST /proposals com status 'enviada') */}
           <button
+            disabled={saving}
             onClick={() => handleSave("enviada")}
-            disabled={isSaving}
-            className="inline-flex items-center justify-center px-4 py-2 bg-cyan-600 text-white text-sm font-medium rounded-lg hover:bg-cyan-700 transition-colors duration-200 disabled:opacity-70"
+            className="inline-flex items-center justify-center px-4 py-2 bg-cyan-600 text-white text-sm font-medium rounded-lg hover:bg-cyan-700 transition-colors duration-200 disabled:opacity-60"
           >
             <Send className="w-4 h-4 mr-2" />
-            {isSaving ? "Enviando..." : "Enviar Proposta"}
+            {saving ? "Enviando…" : "Enviar Proposta"}
           </button>
         </div>
       </div>

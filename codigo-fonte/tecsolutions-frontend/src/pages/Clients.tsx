@@ -1,68 +1,23 @@
-// src/pages/Clients.tsx
-import React, { useState, useEffect, useMemo } from "react";
+// Conecta Clients ao backend (sem mocks e sem mudar layout)
+import React, { useState, useEffect } from "react";
 import { PlusCircle, Search, Edit, Trash2, Mail, Phone } from "lucide-react";
-import { api } from "../services/api";
+import { getClients, saveClient, deleteClient } from "../utils/storage";
 import { Client } from "../types";
 
-/* 🧰 Utils ---------------------------------------------------- */
-// Remove tudo que não é dígito
-const onlyDigits = (v: string) => (v || "").replace(/\D/g, "");
-
-// Converte enum do backend → UI
-const apiTypeToUI = (t?: string): "contrato" | "avulso" =>
-  t?.toUpperCase() === "CONTRATO" ? "contrato" : "avulso";
-
-// Converte enum da UI → backend
-const uiTypeToAPI = (t: "contrato" | "avulso") =>
-  t === "contrato" ? "CONTRATO" : "AVULSO";
-
-/* 🔁 Adapter: API -> UI (garante campos esperados na tela) ----- */
-const toUI = (c: any): Client => ({
-  id: c.id,
-  // mapeia contactName -> name
-  name: c.contactName ?? c.name ?? "",
-  // mapeia companyName -> company
-  company: c.companyName ?? c.company ?? "",
-  email: c.email ?? "",
-  phone: c.phone ?? "",
-  cnpj: c.cnpj ?? "",
-  address: c.address ?? "",
-  // clientType (CONTRATO|AVULSO) -> ui (contrato|avulso)
-  type: apiTypeToUI(c.clientType ?? c.type),
-  createdAt: c.createdAt ?? null,
-});
-
-/* 🔁 Adapter: UI -> API (payload correto para o backend) -------- */
-const toAPI = (f: {
-  name: string;
-  company: string;
-  email: string;
-  phone: string;
-  cnpj: string;
-  address: string;
-  type: "contrato" | "avulso";
-}) => ({
-  contactName: f.name, // ✅ nome do responsável
-  companyName: f.company, // ✅ nome da empresa
-  email: f.email,
-  phone: onlyDigits(f.phone), // ✅ sem máscara
-  cnpj: onlyDigits(f.cnpj) || null, // ✅ 14 dígitos ou null
-  address: f.address,
-  clientType: uiTypeToAPI(f.type), // ✅ "CONTRATO" | "AVULSO"
-});
-
 const Clients: React.FC = () => {
-  /* Estados --------------------------------------------------- */
+  // --- estados principais ---------------------------------------------------
   const [clients, setClients] = useState<Client[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [showModal, setShowModal] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
+
+  // --- controle leve --------------------------------------------------------
+  const [loading, setLoading] = useState<boolean>(true);
+  const [saving, setSaving] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  /* Formulário ------------------------------------------------ */
+  // --- form -----------------------------------------------------------------
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -73,48 +28,35 @@ const Clients: React.FC = () => {
     type: "avulso" as "contrato" | "avulso",
   });
 
-  /* Carregar lista do backend -------------------------------- */
+  // --- carregar do backend --------------------------------------------------
   const loadClients = async () => {
-    setIsLoading(true);
-    setError(null);
     try {
-      const params: Record<string, string> = {};
-      if (searchTerm.trim()) params.q = searchTerm.trim();
-      // ✅ backend espera clientType em MAIÚSCULO
-      if (typeFilter !== "all")
-        params.clientType = uiTypeToAPI(typeFilter as any);
-
-      const { data } = await api.get("/clients", { params });
-      const arr = Array.isArray(data) ? data : [];
-      setClients(arr.map(toUI)); // aplica adapter
-    } catch {
-      setError("Falha ao carregar clientes. Tente novamente.");
-      setClients([]);
+      setLoading(true);
+      setError(null);
+      const data = await getClients();
+      setClients(Array.isArray(data) ? data : []);
+    } catch (e) {
+      console.error(e);
+      setError("Falha ao carregar clientes.");
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
   useEffect(() => {
     loadClients();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm, typeFilter]);
+  }, []);
 
-  /* Filtro local (fallback) ----------------------------------- */
-  const filteredClients = useMemo(() => {
-    const list = clients || [];
-    return list.filter((client) => {
-      const matchesText =
-        !searchTerm ||
-        client.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        client.company?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        client.email?.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesType = typeFilter === "all" || client.type === typeFilter;
-      return matchesText && matchesType;
-    });
-  }, [clients, searchTerm, typeFilter]);
+  // --- filtros locais (mantêm o mesmo comportamento/visual) -----------------
+  const filteredClients = clients.filter(
+    (client) =>
+      (client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        client.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        client.email.toLowerCase().includes(searchTerm.toLowerCase())) &&
+      (typeFilter === "all" || client.type === typeFilter)
+  );
 
-  /* Utils ----------------------------------------------------- */
+  // --- helpers --------------------------------------------------------------
   const resetForm = () => {
     setFormData({
       name: "",
@@ -128,75 +70,66 @@ const Clients: React.FC = () => {
     setEditingClient(null);
   };
 
-  /* Submit (Create/Update) ----------------------------------- */
+  // --- submit (POST/PUT no backend) ----------------------------------------
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSaving(true);
-    setError(null);
+
+    // Comentário: payload. Se houver id, storage fará PUT; senão, POST.
+    const payload: Partial<Client> = {
+      ...(editingClient?.id ? { id: editingClient.id } : {}),
+      ...formData,
+      // createdAt deve vir do backend; se estiver editando, preservamos o existente (opcional)
+      ...(editingClient?.createdAt
+        ? { createdAt: editingClient.createdAt }
+        : {}),
+    };
 
     try {
-      // ✅ validações simples antes de enviar
-      if (
-        !formData.name ||
-        !formData.company ||
-        !formData.email ||
-        !formData.address
-      ) {
-        throw new Error("Preencha os campos obrigatórios.");
-      }
-      const cnpjDigits = onlyDigits(formData.cnpj);
-      if (cnpjDigits && cnpjDigits.length !== 14) {
-        throw new Error("CNPJ inválido (use 14 dígitos).");
-      }
-
-      const payload = toAPI(formData); // aplica adapter
-
-      if (editingClient) {
-        await api.put(`/clients/${editingClient.id}`, payload);
-      } else {
-        await api.post("/clients", payload); // ✅ agora com clientType correto
-      }
-
+      setSaving(true);
+      const saved = await saveClient(payload as Client);
+      if (!saved) throw new Error("Falha ao salvar");
       await loadClients();
       setShowModal(false);
       resetForm();
-    } catch (err: any) {
-      setError(
-        err?.message ||
-          "Falha ao salvar cliente. Verifique os campos e tente novamente."
-      );
+    } catch (err) {
+      console.error(err);
+      alert("Não foi possível salvar o cliente.");
     } finally {
-      setIsSaving(false);
+      setSaving(false);
     }
   };
 
-  /* Editar ---------------------------------------------------- */
+  // --- editar cliente -------------------------------------------------------
   const handleEdit = (client: Client) => {
     setEditingClient(client);
     setFormData({
-      name: client.name || "",
-      email: client.email || "",
-      phone: client.phone || "",
-      company: client.company || "",
+      name: client.name,
+      email: client.email,
+      phone: client.phone,
+      company: client.company,
       cnpj: client.cnpj || "",
-      address: client.address || "",
-      type: (client.type as "contrato" | "avulso") || "avulso",
+      address: client.address,
+      type: client.type,
     });
     setShowModal(true);
   };
 
-  /* Excluir --------------------------------------------------- */
+  // --- excluir cliente ------------------------------------------------------
   const handleDelete = async (id: string) => {
-    if (window.confirm("Tem certeza que deseja excluir este cliente?")) {
-      setError(null);
-      try {
-        await api.delete(`/clients/${id}`);
-        await loadClients();
-      } catch {
-        setError("Falha ao excluir cliente. Tente novamente.");
-      }
-    }
+    if (!window.confirm("Tem certeza que deseja excluir este cliente?")) return;
+    const ok = await deleteClient(id);
+    if (ok) await loadClients();
   };
+
+  // --- estados de carregamento/erro ----------------------------------------
+  if (loading) {
+    return (
+      <div className="w-full h-full flex items-center justify-center">
+        <span className="text-sm opacity-70">Carregando clientes…</span>
+      </div>
+    );
+  }
+  if (error) return <div className="text-sm text-red-600">{error}</div>;
 
   return (
     <div className="space-y-6">
@@ -207,10 +140,7 @@ const Clients: React.FC = () => {
           <p className="text-gray-600">Gerencie sua base de clientes</p>
         </div>
         <button
-          onClick={() => {
-            resetForm();
-            setShowModal(true);
-          }}
+          onClick={() => setShowModal(true)}
           className="inline-flex items-center px-4 py-2 bg-cyan-600 text-white text-sm font-medium rounded-lg hover:bg-cyan-700 transition-colors duration-200"
         >
           <PlusCircle className="w-4 h-4 mr-2" />
@@ -218,19 +148,12 @@ const Clients: React.FC = () => {
         </button>
       </div>
 
-      {/* Alertas */}
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-2 text-sm">
-          {error}
-        </div>
-      )}
-
-      {/* Filtros */}
+      {/* Filters */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="flex-1">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
               <input
                 type="text"
                 placeholder="Buscar clientes..."
@@ -254,91 +177,78 @@ const Clients: React.FC = () => {
         </div>
       </div>
 
-      {/* Grid */}
-      {isLoading ? (
-        <div className="text-sm text-gray-500">Carregando clientes...</div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredClients.map((client) => (
-            <div
-              key={client.id}
-              className="bg-white rounded-lg shadow-sm border border-gray-200 p-6"
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex-1">
-                  <h3 className="text-lg font-medium text-gray-900">
-                    {client.company || "—"}
-                  </h3>
-                  <p className="text-sm text-gray-600">{client.name || "—"}</p>
-                  <span
-                    className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium mt-2 ${
-                      client.type === "contrato"
-                        ? "bg-green-100 text-green-800"
-                        : "bg-blue-100 text-blue-800"
-                    }`}
-                  >
-                    {client.type === "contrato" ? "Contrato" : "Avulso"}
-                  </span>
-                </div>
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() => handleEdit(client)}
-                    className="text-gray-400 hover:text-gray-600 p-1"
-                    title="Editar"
-                  >
-                    <Edit className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(client.id)}
-                    className="text-gray-400 hover:text-red-600 p-1"
-                    title="Excluir"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
+      {/* Clients Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {filteredClients.map((client) => (
+          <div
+            key={client.id}
+            className="bg-white rounded-lg shadow-sm border border-gray-200 p-6"
+          >
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex-1">
+                <h3 className="text-lg font-medium text-gray-900">
+                  {client.company}
+                </h3>
+                <p className="text-sm text-gray-600">{client.name}</p>
+                <span
+                  className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium mt-2 ${
+                    client.type === "contrato"
+                      ? "bg-green-100 text-green-800"
+                      : "bg-blue-100 text-blue-800"
+                  }`}
+                >
+                  {client.type === "contrato" ? "Contrato" : "Avulso"}
+                </span>
               </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center text-sm text-gray-600">
-                  <Mail className="w-4 h-4 mr-2" />
-                  <a
-                    href={`mailto:${client.email}`}
-                    className="hover:text-cyan-600"
-                  >
-                    {client.email}
-                  </a>
-                </div>
-                <div className="flex items-center text-sm text-gray-600">
-                  <Phone className="w-4 h-4 mr-2" />
-                  <a
-                    href={`tel:${client.phone}`}
-                    className="hover:text-cyan-600"
-                  >
-                    {client.phone}
-                  </a>
-                </div>
-                {client.cnpj && (
-                  <p className="text-sm text-gray-600">CNPJ: {client.cnpj}</p>
-                )}
-                <p className="text-sm text-gray-600">{client.address}</p>
-              </div>
-
-              <div className="mt-4 pt-4 border-t border-gray-200">
-                <p className="text-xs text-gray-500">
-                  {client.createdAt
-                    ? `Cliente desde ${new Date(
-                        client.createdAt
-                      ).toLocaleDateString("pt-BR")}`
-                    : "—"}
-                </p>
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => handleEdit(client)}
+                  className="text-gray-400 hover:text-gray-600 p-1"
+                >
+                  <Edit className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => handleDelete(client.id)}
+                  className="text-gray-400 hover:text-red-600 p-1"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </div>
             </div>
-          ))}
-        </div>
-      )}
 
-      {/* Estado vazio */}
-      {!isLoading && filteredClients.length === 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center text-sm text-gray-600">
+                <Mail className="w-4 h-4 mr-2" />
+                <a
+                  href={`mailto:${client.email}`}
+                  className="hover:text-cyan-600"
+                >
+                  {client.email}
+                </a>
+              </div>
+              <div className="flex items-center text-sm text-gray-600">
+                <Phone className="w-4 h-4 mr-2" />
+                <a href={`tel:${client.phone}`} className="hover:text-cyan-600">
+                  {client.phone}
+                </a>
+              </div>
+              {client.cnpj && (
+                <p className="text-sm text-gray-600">CNPJ: {client.cnpj}</p>
+              )}
+              <p className="text-sm text-gray-600">{client.address}</p>
+            </div>
+
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <p className="text-xs text-gray-500">
+                Cliente desde{" "}
+                {new Date(client.createdAt as any).toLocaleDateString("pt-BR")}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {filteredClients.length === 0 && (
         <div className="text-center py-12">
           <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <Search className="w-8 h-8 text-gray-400" />
@@ -353,10 +263,7 @@ const Clients: React.FC = () => {
           </p>
           {!searchTerm && (
             <button
-              onClick={() => {
-                resetForm();
-                setShowModal(true);
-              }}
+              onClick={() => setShowModal(true)}
               className="inline-flex items-center px-4 py-2 bg-cyan-600 text-white text-sm font-medium rounded-lg hover:bg-cyan-700 transition-colors duration-200"
             >
               <PlusCircle className="w-4 h-4 mr-2" />
@@ -366,7 +273,7 @@ const Clients: React.FC = () => {
         </div>
       )}
 
-      {/* Modal (Criar/Editar) */}
+      {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
@@ -377,7 +284,6 @@ const Clients: React.FC = () => {
             </div>
 
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
-              {/* Nome do responsável */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Nome *
@@ -393,7 +299,6 @@ const Clients: React.FC = () => {
                 />
               </div>
 
-              {/* Empresa */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Empresa *
@@ -409,7 +314,6 @@ const Clients: React.FC = () => {
                 />
               </div>
 
-              {/* Email */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Email *
@@ -425,7 +329,6 @@ const Clients: React.FC = () => {
                 />
               </div>
 
-              {/* Telefone */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Telefone *
@@ -441,7 +344,6 @@ const Clients: React.FC = () => {
                 />
               </div>
 
-              {/* CNPJ */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   CNPJ
@@ -456,7 +358,6 @@ const Clients: React.FC = () => {
                 />
               </div>
 
-              {/* Tipo */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Tipo de Cliente *
@@ -497,7 +398,6 @@ const Clients: React.FC = () => {
                 </div>
               </div>
 
-              {/* Endereço */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Endereço *
@@ -513,7 +413,6 @@ const Clients: React.FC = () => {
                 />
               </div>
 
-              {/* Ações */}
               <div className="flex justify-end space-x-3 pt-4">
                 <button
                   type="button"
@@ -527,11 +426,11 @@ const Clients: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  disabled={isSaving}
-                  className="px-4 py-2 bg-cyan-600 text-white text-sm font-medium rounded-lg hover:bg-cyan-700 transition-colors duration-200 disabled:opacity-70"
+                  disabled={saving}
+                  className="px-4 py-2 bg-cyan-600 text-white text-sm font-medium rounded-lg hover:bg-cyan-700 transition-colors duration-200 disabled:opacity-60"
                 >
-                  {isSaving
-                    ? "Salvando..."
+                  {saving
+                    ? "Salvando…"
                     : editingClient
                     ? "Atualizar"
                     : "Cadastrar"}

@@ -1,34 +1,23 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { PlusCircle, Search, Edit, Trash2 } from "lucide-react";
-// 🔗 API central (token em memória via interceptor)
-import { api } from "../services/api";
+// Conecta Products ao backend (sem mocks e sem mudar layout)
+import React, { useState, useEffect } from "react";
+import { PlusCircle, Search, Edit, Trash2, Package } from "lucide-react";
+import { getProducts, saveProduct, deleteProduct } from "../utils/storage";
 import { Product } from "../types";
 
-// 🏷️ Badge de categoria + mapeadores
-import CategoryBadge from "../components/CategoryBadge";
-import { productCategoryLabel, productCategoryTone } from "../utils/category";
-
-// 💰 Formatador BRL (preço)
-const brl = (v: number) =>
-  (Number(v) || 0).toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  });
-
 const Products: React.FC = () => {
-  // -------------------- Estado base --------------------
-  const [products, setProducts] = useState<Product[]>([]); // lista do backend
-  const [searchTerm, setSearchTerm] = useState(""); // busca por texto
-  const [categoryFilter, setCategoryFilter] = useState<string>("all"); // filtro categoria
-  const [showModal, setShowModal] = useState(false); // modal create/edit
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null); // item em edição
+  // --- estados principais ---------------------------------------------------
+  const [products, setProducts] = useState<Product[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [showModal, setShowModal] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
-  // -------------------- UI states --------------------
-  const [isLoading, setIsLoading] = useState(false); // loading listagem
-  const [isSaving, setIsSaving] = useState(false); // loading submit
-  const [error, setError] = useState<string | null>(null); // mensagem de erro
+  // --- controle leve --------------------------------------------------------
+  const [loading, setLoading] = useState<boolean>(true);
+  const [saving, setSaving] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // -------------------- Formulário --------------------
+  // --- form -----------------------------------------------------------------
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -40,7 +29,6 @@ const Products: React.FC = () => {
     stock: 0,
   });
 
-  // 📚 Catálogo de categorias (se quiser, pode vir do backend futuramente)
   const categories = [
     { value: "cabos", label: "Cabos" },
     { value: "conectores", label: "Conectores" },
@@ -49,50 +37,42 @@ const Products: React.FC = () => {
     { value: "outros", label: "Outros" },
   ];
 
-  // -------------------- Carregar produtos --------------------
+  // --- carregar do backend --------------------------------------------------
   const loadProducts = async () => {
-    // # Busca lista no backend (aceita q/ category se implementado)
-    setIsLoading(true);
-    setError(null);
     try {
-      const params: Record<string, string> = {};
-      if (searchTerm.trim()) params.q = searchTerm.trim();
-      if (categoryFilter !== "all") params.category = categoryFilter;
-
-      const { data } = await api.get<Product[]>("/products", { params });
+      setLoading(true);
+      setError(null);
+      const data = await getProducts();
       setProducts(Array.isArray(data) ? data : []);
-    } catch (e: any) {
-      setError("Falha ao carregar produtos. Tente novamente.");
-      setProducts([]);
+    } catch (e) {
+      console.error(e);
+      setError("Falha ao carregar produtos.");
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
   useEffect(() => {
     loadProducts();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm, categoryFilter]);
+  }, []);
 
-  // -------------------- Filtro local (fallback) --------------------
-  const filteredProducts = useMemo(() => {
-    const term = searchTerm.toLowerCase();
-    return (products || []).filter((product) => {
-      const matchesSearch =
-        !term ||
-        product.name?.toLowerCase().includes(term) ||
-        product.description?.toLowerCase().includes(term) ||
-        (product.brand && product.brand.toLowerCase().includes(term)) ||
-        (product.model && product.model.toLowerCase().includes(term));
-      const matchesCategory =
-        categoryFilter === "all" || product.category === categoryFilter;
-      return matchesSearch && matchesCategory;
-    });
-  }, [products, searchTerm, categoryFilter]);
+  // --- filtros locais (mantidos) -------------------------------------------
+  const filteredProducts = products.filter((product) => {
+    const matchesSearch =
+      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      product.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (product.brand &&
+        product.brand.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (product.model &&
+        product.model.toLowerCase().includes(searchTerm.toLowerCase()));
 
-  // -------------------- Helpers UI --------------------
+    const matchesCategory =
+      categoryFilter === "all" || product.category === categoryFilter;
+    return matchesSearch && matchesCategory;
+  });
+
+  // --- helpers --------------------------------------------------------------
   const resetForm = () => {
-    // # Limpa formulário e edição
     setFormData({
       name: "",
       description: "",
@@ -106,7 +86,70 @@ const Products: React.FC = () => {
     setEditingProduct(null);
   };
 
-  // 🧮 Status de estoque (texto + cor)
+  // -- criar/editar produto (POST/PUT backend) ------------------------------
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // Comentário: payload. Se houver editingProduct.id, o storage fará PUT; senão, POST
+    const payload: Partial<Product> = {
+      ...(editingProduct?.id ? { id: editingProduct.id } : {}),
+      ...formData,
+      // createdAt é responsabilidade do backend; manter se veio ao editar
+      ...(editingProduct?.createdAt
+        ? { createdAt: editingProduct.createdAt }
+        : {}),
+    };
+
+    try {
+      setSaving(true);
+      const saved = await saveProduct(payload as Product);
+      if (!saved) throw new Error("Falha ao salvar");
+      await loadProducts();
+      setShowModal(false);
+      resetForm();
+    } catch (err) {
+      console.error(err);
+      alert("Não foi possível salvar o produto.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // -- abrir modal de edição -------------------------------------------------
+  const handleEdit = (product: Product) => {
+    setEditingProduct(product);
+    setFormData({
+      name: product.name,
+      description: product.description,
+      price: product.price,
+      category: product.category,
+      unit: product.unit,
+      brand: product.brand || "",
+      model: product.model || "",
+      stock: product.stock || 0,
+    });
+    setShowModal(true);
+  };
+
+  // -- excluir produto -------------------------------------------------------
+  const handleDelete = async (id: string) => {
+    if (!window.confirm("Tem certeza que deseja excluir este produto?")) return;
+    const ok = await deleteProduct(id);
+    if (ok) await loadProducts();
+  };
+
+  // -- helpers visuais -------------------------------------------------------
+  const getCategoryColor = (category: string) => {
+    const colors = {
+      cabos: "bg-blue-100 text-blue-800",
+      conectores: "bg-green-100 text-green-800",
+      equipamentos: "bg-purple-100 text-purple-800",
+      acessorios: "bg-orange-100 text-orange-800",
+      outros: "bg-gray-100 text-gray-800",
+    };
+    return (colors as any)[category] || colors.outros;
+  };
+
   const getStockStatus = (stock?: number) => {
     if (!stock || stock === 0)
       return { color: "text-red-600", label: "Sem estoque" };
@@ -114,77 +157,26 @@ const Products: React.FC = () => {
     return { color: "text-green-600", label: "Em estoque" };
   };
 
-  // -------------------- Submit (Create/Update) --------------------
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSaving(true);
-    setError(null);
-
-    try {
-      if (editingProduct) {
-        // ✏️ Atualiza produto existente
-        await api.put(`/products/${editingProduct.id}`, { ...formData });
-      } else {
-        // ➕ Cria novo produto
-        await api.post("/products", { ...formData });
-      }
-
-      await loadProducts(); // recarrega lista
-      setShowModal(false); // fecha modal
-      resetForm(); // limpa form
-    } catch (e: any) {
-      const msg =
-        e?.response?.data?.message ||
-        e?.response?.data?.error ||
-        "Falha ao salvar o produto. Verifique os campos e tente novamente.";
-      setError(msg);
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  // -------------------- Editar --------------------
-  const handleEdit = (product: Product) => {
-    // # Preenche form e abre modal
-    setEditingProduct(product);
-    setFormData({
-      name: product.name,
-      description: product.description,
-      price: Number(product.price) || 0,
-      category: product.category,
-      unit: product.unit,
-      brand: product.brand || "",
-      model: product.model || "",
-      stock: Number(product.stock) || 0,
-    });
-    setShowModal(true);
-  };
-
-  // -------------------- Excluir --------------------
-  const handleDelete = async (id: string) => {
-    if (!window.confirm("Tem certeza que deseja excluir este produto?")) return;
-    setError(null);
-    try {
-      await api.delete(`/products/${id}`);
-      await loadProducts();
-    } catch (e: any) {
-      setError("Falha ao excluir o produto. Tente novamente.");
-    }
-  };
+  // -- estados de carregamento/erro -----------------------------------------
+  if (loading) {
+    return (
+      <div className="w-full h-full flex items-center justify-center">
+        <span className="text-sm opacity-70">Carregando produtos…</span>
+      </div>
+    );
+  }
+  if (error) return <div className="text-sm text-red-600">{error}</div>;
 
   return (
     <div className="space-y-6">
-      {/* ==================== Header ==================== */}
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Produtos</h1>
           <p className="text-gray-600">Gerencie seu catálogo de produtos</p>
         </div>
         <button
-          onClick={() => {
-            resetForm(); // # garante form limpo
-            setShowModal(true);
-          }}
+          onClick={() => setShowModal(true)}
           className="inline-flex items-center px-4 py-2 bg-cyan-600 text-white text-sm font-medium rounded-lg hover:bg-cyan-700 transition-colors duration-200"
         >
           <PlusCircle className="w-4 h-4 mr-2" />
@@ -192,20 +184,12 @@ const Products: React.FC = () => {
         </button>
       </div>
 
-      {/* ==================== Alertas ==================== */}
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-2 text-sm">
-          {error}
-        </div>
-      )}
-
-      {/* ==================== Filtros ==================== */}
+      {/* Filters */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="flex flex-col sm:flex-row gap-4">
-          {/* Busca */}
           <div className="flex-1">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
               <input
                 type="text"
                 placeholder="Buscar produtos..."
@@ -215,7 +199,6 @@ const Products: React.FC = () => {
               />
             </div>
           </div>
-          {/* Categoria */}
           <div className="sm:w-48">
             <select
               value={categoryFilter}
@@ -233,125 +216,99 @@ const Products: React.FC = () => {
         </div>
       </div>
 
-      {/* ==================== Grid de Produtos ==================== */}
-      {isLoading ? (
-        // ⏳ Loading simples
-        <div className="text-sm text-gray-500">Carregando produtos...</div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredProducts.map((product) => {
-            const stockStatus = getStockStatus(product.stock);
-            return (
-              <div
-                key={product.id}
-                className="bg-white rounded-lg shadow-sm border border-gray-200 p-6"
-              >
-                {/* Cabeçalho do card */}
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex-1">
-                    {/* 🏷️ Título */}
-                    <h3 className="text-lg font-medium text-gray-900">
-                      {product.name}
-                    </h3>
-
-                    {/* 🔹 Badge de CATEGORIA logo abaixo do título */}
-                    <CategoryBadge
-                      label={productCategoryLabel(product.category)}
-                      tone={productCategoryTone(product.category)}
-                      className="mt-2"
-                    />
-                  </div>
-
-                  {/* Ações */}
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => handleEdit(product)}
-                      className="text-gray-400 hover:text-gray-600 p-1"
-                      title="Editar"
-                    >
-                      <Edit className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(product.id)}
-                      className="text-gray-400 hover:text-red-600 p-1"
-                      title="Excluir"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
+      {/* Products Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {filteredProducts.map((product) => {
+          const stockStatus = getStockStatus(product.stock);
+          return (
+            <div
+              key={product.id}
+              className="bg-white rounded-lg shadow-sm border border-gray-200 p-6"
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex-1">
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">
+                    {product.name}
+                  </h3>
+                  <span
+                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getCategoryColor(
+                      product.category
+                    )}`}
+                  >
+                    <Package className="w-3 h-3 mr-1" />
+                    {
+                      categories.find((c) => c.value === product.category)
+                        ?.label
+                    }
+                  </span>
                 </div>
-
-                {/* Descrição */}
-                <p className="text-sm text-gray-600 mb-4 line-clamp-2">
-                  {product.description}
-                </p>
-
-                {/* Marca — Modelo (quando houver) */}
-                {(product.brand || product.model) && (
-                  <div className="mb-4 text-sm text-gray-700">
-                    {product.brand && (
-                      <span className="font-semibold">{product.brand}</span>
-                    )}
-                    {product.brand && product.model && <span> — </span>}
-                    {product.model && <span>{product.model}</span>}
-                  </div>
-                )}
-
-                {/* Preço/unidade + estoque */}
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <p className="text-lg font-semibold text-gray-900">
-                      {brl(Number(product.price))}
-                    </p>
-                    <p className="text-xs text-gray-500">por {product.unit}</p>
-                  </div>
-
-                  {product.stock !== undefined && (
-                    <div className="text-right">
-                      <p className={`text-sm font-medium ${stockStatus.color}`}>
-                        {stockStatus.label}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {Number(product.stock)} {product.unit}
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Data */}
-                <div className="pt-3 border-t border-gray-200">
-                  <p className="text-xs text-gray-500">
-                    {product.createdAt
-                      ? `Criado em ${new Date(
-                          product.createdAt
-                        ).toLocaleDateString("pt-BR")}`
-                      : "—"}
-                  </p>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => handleEdit(product)}
+                    className="text-gray-400 hover:text-gray-600 p-1"
+                  >
+                    <Edit className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(product.id)}
+                    className="text-gray-400 hover:text-red-600 p-1"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
-            );
-          })}
-        </div>
-      )}
 
-      {/* ==================== Estado vazio ==================== */}
-      {!isLoading && filteredProducts.length === 0 && (
+              <p className="text-sm text-gray-600 mb-4 line-clamp-2">
+                {product.description}
+              </p>
+
+              {(product.brand || product.model) && (
+                <div className="mb-4 text-sm text-gray-600">
+                  {product.brand && (
+                    <span className="font-medium">{product.brand}</span>
+                  )}
+                  {product.brand && product.model && <span> - </span>}
+                  {product.model && <span>{product.model}</span>}
+                </div>
+              )}
+
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <p className="text-lg font-semibold text-gray-900">
+                    R$ {product.price.toFixed(2)}
+                  </p>
+                  <p className="text-xs text-gray-500">por {product.unit}</p>
+                </div>
+                {product.stock !== undefined && (
+                  <div className="text-right">
+                    <p className={`text-sm font-medium ${stockStatus.color}`}>
+                      {stockStatus.label}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {product.stock} {product.unit}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-3 border-t border-gray-200">
+                <p className="text-xs text-gray-500">
+                  {/* Comentário: createdAt pode vir como string ISO; fallback seguro */}
+                  Criado em{" "}
+                  {new Date(product.createdAt as any).toLocaleDateString(
+                    "pt-BR"
+                  )}
+                </p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {filteredProducts.length === 0 && (
         <div className="text-center py-12">
           <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            {/* Ícone apenas para o estado vazio */}
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="w-8 h-8 text-gray-400"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-            >
-              <path
-                d="M3 7h18M3 12h18M3 17h18"
-                strokeWidth="2"
-                strokeLinecap="round"
-              />
-            </svg>
+            <Package className="w-8 h-8 text-gray-400" />
           </div>
           <h3 className="text-lg font-medium text-gray-900 mb-2">
             Nenhum produto encontrado
@@ -363,10 +320,7 @@ const Products: React.FC = () => {
           </p>
           {!searchTerm && categoryFilter === "all" && (
             <button
-              onClick={() => {
-                resetForm();
-                setShowModal(true);
-              }}
+              onClick={() => setShowModal(true)}
               className="inline-flex items-center px-4 py-2 bg-cyan-600 text-white text-sm font-medium rounded-lg hover:bg-cyan-700 transition-colors duration-200"
             >
               <PlusCircle className="w-4 h-4 mr-2" />
@@ -376,7 +330,7 @@ const Products: React.FC = () => {
         </div>
       )}
 
-      {/* ==================== Modal (Criar/Editar) ==================== */}
+      {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
@@ -387,7 +341,7 @@ const Products: React.FC = () => {
             </div>
 
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
-              {/* Nome */}
+              {/* Comentário: campos do formulário (mantidos) */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Nome do Produto *
@@ -403,7 +357,6 @@ const Products: React.FC = () => {
                 />
               </div>
 
-              {/* Categoria */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Categoria *
@@ -427,9 +380,8 @@ const Products: React.FC = () => {
                 </select>
               </div>
 
-              {/* Descrição */}
               <div>
-                <label className="block textsm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Descrição *
                 </label>
                 <textarea
@@ -443,37 +395,6 @@ const Products: React.FC = () => {
                 />
               </div>
 
-              {/* Marca/Modelo */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Marca
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.brand}
-                    onChange={(e) =>
-                      setFormData({ ...formData, brand: e.target.value })
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Modelo
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.model}
-                    onChange={(e) =>
-                      setFormData({ ...formData, model: e.target.value })
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-                  />
-                </div>
-              </div>
-
-              {/* Preço / Unidade / Estoque */}
               <div className="grid grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -494,6 +415,7 @@ const Products: React.FC = () => {
                     required
                   />
                 </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Unidade *
@@ -505,10 +427,11 @@ const Products: React.FC = () => {
                       setFormData({ ...formData, unit: e.target.value })
                     }
                     placeholder="ex: metro, unidade"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus-border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                     required
                   />
                 </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Estoque
@@ -528,7 +451,36 @@ const Products: React.FC = () => {
                 </div>
               </div>
 
-              {/* Ações do modal */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Marca
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.brand}
+                    onChange={(e) =>
+                      setFormData({ ...formData, brand: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Modelo
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.model}
+                    onChange={(e) =>
+                      setFormData({ ...formData, model: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+
               <div className="flex justify-end space-x-3 pt-4">
                 <button
                   type="button"
@@ -542,11 +494,11 @@ const Products: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  disabled={isSaving}
-                  className="px-4 py-2 bg-cyan-600 text-white text-sm font-medium rounded-lg hover:bg-cyan-700 transition-colors duration-200 disabled:opacity-70"
+                  disabled={saving}
+                  className="px-4 py-2 bg-cyan-600 text-white text-sm font-medium rounded-lg hover:bg-cyan-700 transition-colors duration-200 disabled:opacity-60"
                 >
-                  {isSaving
-                    ? "Salvando..."
+                  {saving
+                    ? "Salvando…"
                     : editingProduct
                     ? "Atualizar"
                     : "Cadastrar"}
