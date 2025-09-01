@@ -27,9 +27,9 @@ async function main() {
   // cliente exemplo
   const client = await prisma.client.create({
     data: {
-      name: 'Cliente Contrato Exemplo',
+      name: 'Allora Construtora',
       type: 'CONTRACT',
-      email: 'cliente@empresa.com',
+      email: 'sandra@alloraconstrutora.com',
       phone: '(11) 99999-9999',
       address: 'Rua Exemplo, 123 - SP'
     }
