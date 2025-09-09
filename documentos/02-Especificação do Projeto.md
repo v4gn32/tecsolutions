@@ -30,6 +30,9 @@ Desenvolver uma plataforma online chamada **TecSolutions**, que permita o gerenc
 
 > Um diagrama de arquitetura será criado para representar a interação entre os módulos da plataforma.
 
+![Diagrama Arquitetura](https://raw.githubusercontent.com/v4gn32/tecsolutions/main/documentos/img/Diagrama-Arquitetura.png)
+
+
 ---
 
 # 💰 Estrutura de Custos — Projeto TecSolutions
