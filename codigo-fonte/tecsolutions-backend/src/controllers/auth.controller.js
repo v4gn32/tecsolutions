@@ -1,72 +1,79 @@
 // src/controllers/auth.controller.js
-
+// Cadastro, login e perfil
 import prisma from "../config/db.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
-function sign(user) {
+function signToken(user) {
+  // Gera JWT com subject = id do usuário
   return jwt.sign(
-    { id: user.id, name: user.name, email: user.email, role: user.role }, // <- role já vai no token
+    { role: user.role, email: user.email },
     process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRES_IN || "7d" }
+    { subject: user.id, expiresIn: process.env.JWT_EXPIRES_IN || "7d" }
   );
 }
 
-// POST /api/auth/login
-export async function login(req, res) {
+export const register = async (req, res) => {
+  try {
+    const { name, email, password, role } = req.body;
+
+    const exists = await prisma.user.findUnique({ where: { email } });
+    if (exists)
+      return res.status(409).json({ message: "E-mail já cadastrado" });
+
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    const user = await prisma.user.create({
+      data: { name, email, passwordHash, role: role || "TECH", isActive: true },
+    });
+
+    const token = signToken(user);
+    return res.status(201).json({
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+    });
+  } catch (err) {
+    return res
+      .status(500)
+      .json({ message: "Erro ao registrar", error: err.message });
+  }
+};
+
+export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
     const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) return res.status(401).json({ message: "Usuário não encontrado" });
+    if (!user || !user.isActive) {
+      return res.status(401).json({ message: "Credenciais inválidas" });
+    }
 
-    const valid = await bcrypt.compare(password, user.password);
-    if (!valid) return res.status(401).json({ message: "Senha inválida" });
+    const ok = await bcrypt.compare(password, user.passwordHash);
+    if (!ok) return res.status(401).json({ message: "Credenciais inválidas" });
 
-    const token = jwt.sign(
-      { id: user.id, name: user.name, email: user.email, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
-
+    const token = signToken(user);
     return res.json({
-      token, // 🔑 O frontend precisa salvar isso
-      user: { id: user.id, name: user.name, email: user.email, role: user.role },
-    });
-  } catch (err) {
-    res.status(500).json({ message: "Erro interno" });
-  }
-}
-
-
-// src/controllers/auth.controller.js
-export async function getProfile(req, res) {
-  try {
-    const id = Number(req.userId);
-    if (!id)
-      return res
-        .status(401)
-        .json({ message: "Token inválido ou usuário não identificado" });
-
-    const me = await prisma.user.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        isActive: true,
-        createdAt: true,
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
       },
     });
-
-    if (!me) return res.status(404).json({ message: "Usuário não encontrado" });
-    if (!me.isActive)
-      return res.status(403).json({ message: "Usuário inativo" });
-
-    return res.json(me);
-  } catch (e) {
-    console.error("[auth.getProfile]", e);
-    return res.status(500).json({ message: "Erro ao obter perfil" });
+  } catch (err) {
+    return res
+      .status(500)
+      .json({ message: "Erro ao logar", error: err.message });
   }
-}
+};
+
+export const getProfile = async (req, res) => {
+  // Retorna dados do usuário autenticado
+  return res.json({ user: req.user });
+};

@@ -1,25 +1,17 @@
 // src/routes/user.routes.js
-// Rotas de usuários (somente ADMIN)
-import { Router } from "express";
-import auth from "../middlewares/auth.middleware.js";
-import { isAdmin } from "../middlewares/role.middleware.js";
-import {
-  listUsers,
-  createUser,
-  updateUser,
-  deleteUser,
-  resetPassword,
-} from "../controllers/user.controller.js";
+import { Router } from 'express';
+import { authenticate } from '../middlewares/auth.middleware.js';
+import { requireRole } from '../middlewares/role.middleware.js';
+import { listUsers, createUser, updateUser, deleteUser } from '../controllers/user.controller.js';
 
 const router = Router();
 
-// Todas as rotas abaixo exigem JWT + admin
-router.use(auth, isAdmin);
+// Todas as rotas abaixo exigem ADMIN
+router.use(authenticate, requireRole('ADMIN'));
 
-router.get("/", listUsers);
-router.post("/", createUser);
-router.put("/:id", updateUser);
-router.delete("/:id", deleteUser);
-router.patch("/:id/reset-password", resetPassword);
+router.get('/', listUsers);          // GET /api/users
+router.post('/', createUser);        // POST /api/users
+router.put('/:id', updateUser);      // PUT /api/users/:id
+router.delete('/:id', deleteUser);   // DELETE /api/users/:id
 
 export default router;

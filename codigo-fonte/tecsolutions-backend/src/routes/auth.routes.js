@@ -1,15 +1,15 @@
 // src/routes/auth.routes.js
-// Rotas de autenticação
 import { Router } from 'express';
-import { login, getProfile } from '../controllers/auth.controller.js';
-import auth from '../middlewares/auth.middleware.js'; // <- default
+import { register, login, getProfile } from '../controllers/auth.controller.js';
+import { authenticate } from '../middlewares/auth.middleware.js';
 
 const router = Router();
 
-// Login público
-router.post('/login', login);
+// Registro e login
+router.post('/register', register); // POST /api/auth/register
+router.post('/login', login);       // POST /api/auth/login
 
-// Perfil protegido
-router.get('/profile', auth, getProfile);
+// Perfil do usuário autenticado
+router.get('/profile', authenticate, getProfile); // GET /api/auth/profile
 
 export default router;
