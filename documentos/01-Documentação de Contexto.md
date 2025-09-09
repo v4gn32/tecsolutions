@@ -74,11 +74,12 @@ A adoção da plataforma TecSolutions se justifica porque:
 | Categoria      | Tecnologias                              |
 | -------------- | ---------------------------------------- |
 | Linguagens     | JavaScript                               |
-| Frontend       | React, Tailwind CSS                      |
-| Backend        | Node.js, Express.js                      |
+| Frontend       | Vite + React + TypeScript + TailwindCSS  |
+| Backend        | Node.js + Express (MVC) + Prisma ORM     |
 | Banco de Dados | PostgreSQL                               |
 | Autenticação   | JWT (JSON Web Tokens), bcrypt            |
-| Hospedagem     | Render (backend), Netlify (frontend)     |
+| Hospedagem     | Render (backend e frontend)              |
+| Armazenamento  | AWS S3 Amazon                            |
 | Outros         | Git, GitHub, Postman, Figma (protótipos) |
 
 ---

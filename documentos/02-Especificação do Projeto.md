@@ -34,6 +34,7 @@ O sistema visa otimizar a operação comercial e técnica, melhorar a comunicaç
 - **Banco de Dados:** PostgreSQL
 - **Autenticação:** JWT com roles (admin e usuário)
 - **Hospedagem:** Render (backend, frontend)
+- **Armazenamento:** AWS (S3)
 - **Integrações Futuras:** API para importação/exportação de dados (Excel, PDF)
 
 > Um diagrama de arquitetura foi criado para representar a interação entre os módulos da plataforma.
@@ -49,7 +50,7 @@ O sistema visa otimizar a operação comercial e técnica, melhorar a comunicaç
 | Item                          | Descrição                                        | Valor Estimado    |
 | ----------------------------- | ------------------------------------------------ | ----------------- |
 | **Desenvolvimento**           | Desenvolvimento completo do sistema              | R$ 10.000,00      |
-| **Hospedagem (6 meses)**      | Custo baseado em serviços de nuvem               | R$ 200,00         |
+| **Hospedagem (6 meses)**      | Custo baseado em serviços de nuvem               | R$ 400,00         |
 | **Registro de Domínio**       | Registro .com.br anual                           | R$ 40,00          |
 | **Infraestrutura e Suporte**  | Configuração de nuvem, backup e automações       | R$ 1.000,00       |
 | **Email Profissional**        | Google Workspace por 6 meses (opcional incluído) | R$ 180,00         |
