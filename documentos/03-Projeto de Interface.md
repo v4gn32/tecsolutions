@@ -19,6 +19,7 @@ Documentação das telas e fluxos de interface do sistema **TecSolutions**, uma 
 ---
 
 ### 2. Tela de Login
+![Tela de Login](https://github.com/ICEI-PUC-Minas-PMV-ADS/pmv-ads-2025-1-e5-proj-empext-t5-mrecursiva/blob/main/documentos/img/Tela_Login.png) <!-- Substitua pelo caminho real da imagem -->
 
 **Descrição:**
 
