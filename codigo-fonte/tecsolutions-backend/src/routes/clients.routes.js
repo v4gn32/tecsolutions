@@ -1,11 +1,11 @@
 // src/routes/clients.routes.js
 // => Rotas de clientes, protegidas para técnicos e admins
 import { Router } from 'express';
-import { authenticate } from '../middlewares/auth.middleware.js';
+import auth from '../middlewares/auth.middleware.js';
 import { listClients, getClient, createClient, updateClient, deleteClient } from '../controllers/clients.controller.js';
 
 const router = Router();
-router.use(authenticate);
+router.use(auth);
 
 router.get('/', listClients);
 router.get('/:id', getClient);

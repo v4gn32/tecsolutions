@@ -1,45 +1,63 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { LogIn, Eye, EyeOff, AlertCircle } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
+// src/pages/Login.tsx
+// Componente de Login com integração ao AuthContext e melhorias de UX/A11y
+import React, { useEffect, useRef, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { LogIn, Eye, EyeOff, AlertCircle } from "lucide-react";
+import { useAuth } from "../contexts/AuthContext";
 
 const Login: React.FC = () => {
-  const [formData, setFormData] = useState({
-    email: '',
-    password: ''
-  });
+  const [formData, setFormData] = useState({ email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  
+
   const { login } = useAuth();
   const navigate = useNavigate();
 
+  const emailRef = useRef<HTMLInputElement | null>(null);
+  const errorRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    emailRef.current?.focus();
+  }, []);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setError("");
+    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    if (isLoading) return;
+
+    setError("");
     setIsLoading(true);
 
     try {
-      const success = await login(formData);
+      const success = await login({
+        email: formData.email.trim(),
+        password: formData.password,
+      });
+
       if (success) {
-        navigate('/dashboard');
+        navigate("/dashboard");
       } else {
-        setError('Email ou senha incorretos');
+        setError("E-mail ou senha incorretos.");
+        setTimeout(() => errorRef.current?.focus(), 0);
       }
-    } catch (err) {
-      setError('Erro ao fazer login. Tente novamente.');
+    } catch (err: any) {
+      const apiMessage =
+        err?.response?.data?.message ||
+        err?.message ||
+        "Erro ao fazer login. Tente novamente.";
+      setError(String(apiMessage));
+      setTimeout(() => errorRef.current?.focus(), 0);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
-  };
+  const canSubmit = formData.email.trim() !== "" && formData.password !== "";
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-tecsolutions-primary via-blue-800 to-tecsolutions-primary flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
@@ -52,7 +70,7 @@ const Login: React.FC = () => {
           <p className="text-gray-200">Sistema de Propostas Comerciais</p>
         </div>
 
-        {/* Login Form */}
+        {/* Card de Login */}
         <div className="bg-white rounded-2xl shadow-2xl p-8">
           <div className="text-center mb-8">
             <div className="bg-tecsolutions-primary rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
@@ -63,46 +81,60 @@ const Login: React.FC = () => {
           </div>
 
           {error && (
-            <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 flex items-center">
+            <div
+              ref={errorRef}
+              tabIndex={-1}
+              className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 flex items-center"
+              role="alert"
+              aria-live="assertive"
+            >
               <AlertCircle className="w-5 h-5 text-red-500 mr-3" />
               <span className="text-red-700 text-sm">{error}</span>
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-6" noValidate>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
                 E-mail
               </label>
               <input
+                ref={emailRef}
+                id="email"
                 type="email"
                 name="email"
                 value={formData.email}
                 onChange={handleChange}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-tecsolutions-accent focus:border-transparent"
                 placeholder="seu@email.com"
+                autoComplete="username"
                 required
+                aria-invalid={!!error}
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
                 Senha
               </label>
               <div className="relative">
                 <input
-                  type={showPassword ? 'text' : 'password'}
+                  id="password"
+                  type={showPassword ? "text" : "password"}
                   name="password"
                   value={formData.password}
                   onChange={handleChange}
                   className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-tecsolutions-accent focus:border-transparent"
                   placeholder="••••••••"
+                  autoComplete="current-password"
                   required
+                  aria-invalid={!!error}
                 />
                 <button
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
+                  onClick={() => setShowPassword((s) => !s)}
                   className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
                 >
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
@@ -111,25 +143,15 @@ const Login: React.FC = () => {
 
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || !canSubmit}
               className="w-full bg-tecsolutions-primary text-white py-3 px-4 rounded-lg font-semibold hover:bg-opacity-90 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isLoading ? 'Entrando...' : 'Entrar'}
+              {isLoading ? "Entrando..." : "Entrar"}
             </button>
           </form>
-
-          {/* Demo Credentials */}
-          <div className="mt-8 p-4 bg-gray-50 rounded-lg">
-            <h3 className="text-sm font-medium text-gray-700 mb-2">Credenciais de Demonstração:</h3>
-            <div className="text-sm text-gray-600 space-y-1">
-              <p><strong>Administrador:</strong></p>
-              <p>Email: admin@tecsolutions.com.br</p>
-              <p>Senha: admin123</p>
-            </div>
-          </div>
         </div>
 
-        {/* Back to Site */}
+        {/* Voltar ao site institucional */}
         <div className="text-center">
           <Link
             to="/"

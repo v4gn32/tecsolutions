@@ -1,19 +1,26 @@
 // src/middlewares/auth.middleware.js
-// => Valida JWT e injeta req.user
-import jwt from 'jsonwebtoken';
+import jwt from "jsonwebtoken";
 
-export function authenticate(req, res, next) {
+export default function auth(req, res, next) {
+  const header = req.headers.authorization || "";
+  let token = "";
+
+  if (header.startsWith("Bearer ")) {
+    token = header.split(" ")[1];
+  }
+  if (!token && req.query?.token) {
+    token = String(req.query.token);
+  }
+  if (!token) {
+    return res.status(401).json({ message: "Token não fornecido" });
+  }
+
   try {
-    // Token pode vir no header Authorization: Bearer <token>
-    const authHeader = req.headers.authorization || '';
-    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
-
-    if (!token) return res.status(401).json({ message: 'Token ausente' });
-
-    const payload = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = { id: payload.id, role: payload.role, name: payload.name, email: payload.email };
-    next();
-  } catch (err) {
-    return res.status(401).json({ message: 'Token inválido' });
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.userId = decoded.id;
+    req.user = decoded; // { id, name, email, role }
+    return next();
+  } catch {
+    return res.status(401).json({ message: "Token inválido" });
   }
 }

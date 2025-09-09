@@ -1,10 +1,10 @@
 // src/routes/proposals.routes.js
 import { Router } from 'express';
-import { authenticate } from '../middlewares/auth.middleware.js';
+import auth from '../middlewares/auth.middleware.js';
 import { listProposals, getProposal, createProposal, updateProposalStatus, deleteProposal } from '../controllers/proposals.controller.js';
 
 const router = Router();
-router.use(authenticate);
+router.use(auth);
 
 router.get('/', listProposals);
 router.get('/:id', getProposal);

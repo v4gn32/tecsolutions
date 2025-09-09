@@ -1,100 +1,203 @@
-import React, { useState, useEffect } from 'react';
-import { PlusCircle, Search, Edit, Trash2, Users, Shield, User } from 'lucide-react';
-import { getUsers, saveUser, deleteUser } from '../../utils/auth';
-import { User as UserType } from '../../types/auth';
-import { useAuth } from '../../contexts/AuthContext';
+// src/pages/admin/UserManagement.tsx
+// Funcionalidade: Gerenciar usuários (listar, criar, editar, excluir) consumindo o backend real.
+// Requisitos: AuthContext com token + api (axios) com baseURL e interceptor.
+// Rotas esperadas no backend (MVC):
+//   GET    /api/users          -> lista (admin)
+//   POST   /api/users          -> cria (admin)
+//   PUT    /api/users/:id      -> atualiza (admin)
+//   DELETE /api/users/:id      -> exclui (admin)
+
+import React, { useState, useEffect } from "react";
+import {
+  PlusCircle,
+  Search,
+  Edit,
+  Trash2,
+  Users,
+  Shield,
+  User,
+} from "lucide-react";
+import api from "../../utils/api"; // 🔹 usa axios configurado
+import { User as UserType } from "../../types/auth";
+import { useAuth } from "../../contexts/AuthContext";
 
 const UserManagement: React.FC = () => {
+  // 🔹 estado base
   const [users, setUsers] = useState<UserType[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState<UserType | null>(null);
+
+  // 🔹 estados auxiliares (UX)
+  const [loading, setLoading] = useState<boolean>(true); // lista inicial
+  const [saving, setSaving] = useState<boolean>(false); // criar/editar
+  const [removingId, setRemovingId] = useState<string | null>(null); // excluir
+  const [error, setError] = useState<string>(""); // mensagens de erro
+
   const { user: currentUser } = useAuth();
-  
+
+  // 🔹 formulário controlado
   const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    role: 'user' as 'admin' | 'user',
-    password: ''
+    name: "",
+    email: "",
+    role: "user" as "admin" | "user",
+    password: "",
   });
-  
+
+  // ============================================================
+  // Carrega a lista de usuários do backend (admin)
+  // ============================================================
+  const fetchUsers = async () => {
+    try {
+      setLoading(true);
+      setError("");
+      const res = await api.get("/users");
+      // ⚠️ O backend pode devolver createdAt como string; tipamos para Date ao exibir
+      setUsers(res.data || []);
+    } catch (err: any) {
+      console.error("Erro ao buscar usuários:", err);
+      setError(
+        err?.response?.data?.message || "Não foi possível carregar os usuários."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    setUsers(getUsers());
+    fetchUsers();
   }, []);
-  
-  const filteredUsers = users.filter(user =>
-    user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchTerm.toLowerCase())
+
+  // ============================================================
+  // Helpers
+  // ============================================================
+  const filteredUsers = users.filter(
+    (u) =>
+      u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      u.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
-  
+
   const resetForm = () => {
-    setFormData({
-      name: '',
-      email: '',
-      role: 'user',
-      password: ''
-    });
+    setFormData({ name: "", email: "", role: "user", password: "" });
     setEditingUser(null);
   };
-  
-  const handleSubmit = (e: React.FormEvent) => {
+
+  // ============================================================
+  // Criar/Editar usuário (POST/PUT)
+  // ============================================================
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    const user: UserType = {
-      id: editingUser?.id || Date.now().toString(),
-      name: formData.name,
-      email: formData.email,
-      role: formData.role,
-      createdAt: editingUser?.createdAt || new Date(),
-      createdBy: currentUser?.id
-    };
-    
-    saveUser(user, formData.password);
-    setUsers(getUsers());
-    setShowModal(false);
-    resetForm();
+    setSaving(true);
+    setError("");
+
+    try {
+      if (editingUser) {
+        // 🔹 Atualização (PUT /api/users/:id)
+        // Se a senha vier vazia, não envia o campo (mantém a atual)
+        const payload: any = {
+          name: formData.name,
+          email: formData.email,
+          role: formData.role,
+        };
+        if (formData.password.trim()) {
+          payload.password = formData.password;
+        }
+
+        await api.put(`/users/${editingUser.id}`, payload);
+      } else {
+        // 🔹 Criação (POST /api/users)
+        await api.post("/users", {
+          name: formData.name,
+          email: formData.email,
+          role: formData.role,
+          password: formData.password, // obrigatório ao criar
+        });
+      }
+
+      // 🔹 Recarrega a lista e fecha modal
+      await fetchUsers();
+      setShowModal(false);
+      resetForm();
+    } catch (err: any) {
+      console.error("Erro ao salvar usuário:", err);
+      setError(
+        err?.response?.data?.message || "Não foi possível salvar o usuário."
+      );
+    } finally {
+      setSaving(false);
+    }
   };
-  
+
+  // ============================================================
+  // Preparar edição
+  // ============================================================
   const handleEdit = (user: UserType) => {
     setEditingUser(user);
     setFormData({
       name: user.name,
       email: user.email,
-      role: user.role,
-      password: '' // Don't show existing password
+      role: user.role as "admin" | "user",
+      password: "", // não exibe senha atual
     });
     setShowModal(true);
   };
-  
-  const handleDelete = (id: string) => {
+
+  // ============================================================
+  // Excluir usuário (DELETE)
+  // ============================================================
+  const handleDelete = async (id: string) => {
     if (id === currentUser?.id) {
-      alert('Você não pode excluir sua própria conta!');
+      alert("Você não pode excluir sua própria conta!");
       return;
     }
-    
-    if (window.confirm('Tem certeza que deseja excluir este usuário?')) {
-      deleteUser(id);
-      setUsers(getUsers());
+
+    const ok = window.confirm("Tem certeza que deseja excluir este usuário?");
+    if (!ok) return;
+
+    try {
+      setRemovingId(id);
+      setError("");
+      await api.delete(`/users/${id}`);
+      await fetchUsers();
+    } catch (err: any) {
+      console.error("Erro ao excluir:", err);
+      setError(
+        err?.response?.data?.message || "Não foi possível excluir o usuário."
+      );
+    } finally {
+      setRemovingId(null);
     }
   };
-  
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Gerenciar Usuários</h1>
+          <h1 className="text-2xl font-bold text-gray-900">
+            Gerenciar Usuários
+          </h1>
           <p className="text-gray-600">Controle de acesso ao sistema</p>
         </div>
         <button
-          onClick={() => setShowModal(true)}
+          onClick={() => {
+            resetForm();
+            setShowModal(true);
+          }}
           className="inline-flex items-center px-4 py-2 bg-tecsolutions-primary text-white text-sm font-medium rounded-lg hover:bg-opacity-90 transition-colors duration-200"
         >
           <PlusCircle className="w-4 h-4 mr-2" />
           Novo Usuário
         </button>
       </div>
-      
+
+      {/* Alertas de erro */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+          {error}
+        </div>
+      )}
+
       {/* Search */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="relative max-w-md">
@@ -108,10 +211,20 @@ const UserManagement: React.FC = () => {
           />
         </div>
       </div>
-      
+
       {/* Users List */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-        {filteredUsers.length > 0 ? (
+        {loading ? (
+          <div className="text-center py-12">
+            <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Users className="w-8 h-8 text-gray-400 animate-pulse" />
+            </div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              Carregando usuários...
+            </h3>
+            <p className="text-gray-600">Aguarde um instante.</p>
+          </div>
+        ) : filteredUsers.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
@@ -149,12 +262,14 @@ const UserManagement: React.FC = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        user.role === 'admin' 
-                          ? 'bg-red-100 text-red-800' 
-                          : 'bg-blue-100 text-blue-800'
-                      }`}>
-                        {user.role === 'admin' ? (
+                      <span
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          user.role === "admin"
+                            ? "bg-red-100 text-red-800"
+                            : "bg-blue-100 text-blue-800"
+                        }`}
+                      >
+                        {user.role === "admin" ? (
                           <>
                             <Shield className="w-3 h-3 mr-1" />
                             Administrador
@@ -168,7 +283,12 @@ const UserManagement: React.FC = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(user.createdAt).toLocaleDateString('pt-BR')}
+                      {/* createdAt pode vir Date ou string ISO */}
+                      {user.createdAt
+                        ? new Date(user.createdAt as any).toLocaleDateString(
+                            "pt-BR"
+                          )
+                        : "-"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex items-center justify-end space-x-2">
@@ -182,10 +302,15 @@ const UserManagement: React.FC = () => {
                         {user.id !== currentUser?.id && (
                           <button
                             onClick={() => handleDelete(user.id)}
-                            className="text-red-600 hover:text-red-500 p-1"
+                            className="text-red-600 hover:text-red-500 p-1 disabled:opacity-50"
                             title="Excluir"
+                            disabled={removingId === user.id}
                           >
-                            <Trash2 className="w-4 h-4" />
+                            {removingId === user.id ? (
+                              <span className="text-xs">Excluindo...</span>
+                            ) : (
+                              <Trash2 className="w-4 h-4" />
+                            )}
                           </button>
                         )}
                       </div>
@@ -204,25 +329,24 @@ const UserManagement: React.FC = () => {
               Nenhum usuário encontrado
             </h3>
             <p className="text-gray-600 mb-6">
-              {searchTerm 
-                ? 'Tente ajustar o termo de busca' 
-                : 'Cadastre o primeiro usuário para começar'
-              }
+              {searchTerm
+                ? "Tente ajustar o termo de busca"
+                : "Cadastre o primeiro usuário para começar"}
             </p>
           </div>
         )}
       </div>
-      
+
       {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-gray-200">
               <h3 className="text-lg font-medium text-gray-900">
-                {editingUser ? 'Editar Usuário' : 'Novo Usuário'}
+                {editingUser ? "Editar Usuário" : "Novo Usuário"}
               </h3>
             </div>
-            
+
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -231,12 +355,14 @@ const UserManagement: React.FC = () => {
                 <input
                   type="text"
                   value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, name: e.target.value })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-tecsolutions-accent focus:border-transparent"
                   required
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   E-mail *
@@ -244,19 +370,26 @@ const UserManagement: React.FC = () => {
                 <input
                   type="email"
                   value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, email: e.target.value })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-tecsolutions-accent focus:border-transparent"
                   required
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Perfil *
                 </label>
                 <select
                   value={formData.role}
-                  onChange={(e) => setFormData({ ...formData, role: e.target.value as 'admin' | 'user' })}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      role: e.target.value as "admin" | "user",
+                    })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-tecsolutions-accent focus:border-transparent"
                   required
                 >
@@ -264,20 +397,23 @@ const UserManagement: React.FC = () => {
                   <option value="admin">Administrador</option>
                 </select>
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Senha {editingUser ? '(deixe em branco para manter a atual)' : '*'}
+                  Senha{" "}
+                  {editingUser ? "(deixe em branco para manter a atual)" : "*"}
                 </label>
                 <input
                   type="password"
                   value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, password: e.target.value })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-tecsolutions-accent focus:border-transparent"
                   required={!editingUser}
                 />
               </div>
-              
+
               <div className="flex justify-end space-x-3 pt-4">
                 <button
                   type="button"
@@ -291,9 +427,16 @@ const UserManagement: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-tecsolutions-primary text-white text-sm font-medium rounded-lg hover:bg-opacity-90 transition-colors duration-200"
+                  disabled={saving}
+                  className="px-4 py-2 bg-tecsolutions-primary text-white text-sm font-medium rounded-lg hover:bg-opacity-90 transition-colors duration-200 disabled:opacity-50"
                 >
-                  {editingUser ? 'Atualizar' : 'Cadastrar'}
+                  {saving
+                    ? editingUser
+                      ? "Atualizando..."
+                      : "Cadastrando..."
+                    : editingUser
+                    ? "Atualizar"
+                    : "Cadastrar"}
                 </button>
               </div>
             </form>
