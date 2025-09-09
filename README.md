@@ -55,11 +55,11 @@ O **TecSolutions** é um sistema web completo que une o site institucional da em
    ```bash
    cd ../frontend
    npm install
-   # configure o arquivo .env com VITE_API_URL=http://localhost:5000
+   # configure o arquivo .env com VITE_API_URL=http://localhost:3000
    npm run dev
    ```
 
-> Acesse: `http://localhost:5173` (frontend) e `http://localhost:5000` (backend)
+> Acesse: `http://localhost:5173` (frontend) e `http://localhost:3000` (backend)
 
 <ol>
 <li><a href="documentos/01-Documentação de Contexto.md"> Documentação de Contexto</a></li>
