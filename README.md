@@ -1,4 +1,4 @@
-# 📄 TecSolutions – Sistema de Propostas e Cronograma de Atendimentos
+# 📄 TecSolutions – Sistema
 
 O **TecSolutions** é um sistema web completo que une o site institucional da empresa a um sistema interno para gestão de propostas comerciais, cronograma de atendimentos e clientes. Ele foi desenvolvido para otimizar o fluxo comercial e operacional, garantindo organização e eficiência.
 
