@@ -1,12 +1,20 @@
 # 📄 Especificação do Projeto — TecSolutions
 
+---
+
 ## ✅ Definição do Problema
 
-Empresas prestadoras de serviços enfrentam dificuldades em gerenciar propostas comerciais, cronogramas de atendimento, clientes, serviços e produtos de forma centralizada e eficiente. O uso de planilhas e controles manuais é pouco escalável, propenso a erros e dificulta a comunicação entre equipes.
+Empresas prestadoras de serviços enfrentam dificuldades em gerenciar propostas comerciais, cronogramas de atendimento, clientes, serviços e produtos de forma centralizada e eficiente.  
+O uso de planilhas e controles manuais é pouco escalável, propenso a erros e dificulta a comunicação entre equipes.
+
+---
 
 ## 💡 Proposta de Solução
 
-Desenvolver uma plataforma online chamada **TecSolutions**, que permita o gerenciamento unificado de propostas, cronogramas, clientes, serviços, produtos e relatórios. O sistema visa otimizar a operação comercial e técnica, melhorar a comunicação interna e oferecer indicadores para a tomada de decisão.
+Desenvolver uma plataforma online chamada **TecSolutions**, que permita o gerenciamento unificado de propostas, cronogramas, clientes, serviços, produtos e relatórios.  
+O sistema visa otimizar a operação comercial e técnica, melhorar a comunicação interna e oferecer indicadores para a tomada de decisão.
+
+![Project Model Canva](https://raw.githubusercontent.com/v4gn32/tecsolutions/main/documentos/img/ProjectModelCanvas.png)
 
 ---
 
@@ -22,16 +30,15 @@ Desenvolver uma plataforma online chamada **TecSolutions**, que permita o gerenc
 ## 🛠️ Arquitetura e Tecnologias
 
 - **Frontend:** Vite + React + TypeScript + TailwindCSS 
-- **Backend:** Node.js + Express(MVC) + Prisma ORM
+- **Backend:** Node.js + Express (MVC) + Prisma ORM
 - **Banco de Dados:** PostgreSQL
 - **Autenticação:** JWT com roles (admin e usuário)
 - **Hospedagem:** Render (backend, frontend)
 - **Integrações Futuras:** API para importação/exportação de dados (Excel, PDF)
 
-> Um diagrama de arquitetura será criado para representar a interação entre os módulos da plataforma.
+> Um diagrama de arquitetura foi criado para representar a interação entre os módulos da plataforma.
 
-![Diagrama Arquitetura](https://raw.githubusercontent.com/v4gn32/tecsolutions/main/documentos/img/Diagrama-Arquitetura.png)
-
+![Diagrama de Arquitetura](https://raw.githubusercontent.com/v4gn32/tecsolutions/main/documentos/img/Diagrama-Arquitetura.png)
 
 ---
 
@@ -68,6 +75,8 @@ A mensalidade cobre atualizações, monitoramento, suporte técnico e pequenas m
 
 ## 🧩 Funcionalidades Principais
 
+![Diagrama de Funcionalidades](https://raw.githubusercontent.com/v4gn32/tecsolutions/main/documentos/img/Diagrama_de_Funcionalidades.png)
+
 ### Requisitos Funcionais
 
 | ID     | Descrição                                                               |
@@ -78,7 +87,7 @@ A mensalidade cobre atualizações, monitoramento, suporte técnico e pequenas m
 | RF-004 | Registro e acompanhamento de cronogramas de atendimento.                |
 | RF-005 | Cadastro e controle de clientes, serviços e produtos.                   |
 | RF-006 | Relatórios detalhados por período e tipo de serviço.                    |
-| RF-007 | Exportação de dados em PDF ou Excel.                                     |
+| RF-007 | Exportação de dados em PDF ou Excel.                                    |
 | RF-008 | Notificações internas sobre alterações no cronograma ou propostas.      |
 | RF-009 | Dashboard com indicadores em tempo real.                                |
 | RF-010 | Logout e controle de sessão.                                            |
@@ -109,43 +118,45 @@ A mensalidade cobre atualizações, monitoramento, suporte técnico e pequenas m
 
 ## 🎯 Casos de Uso — Sistema TecSolutions
 
+![Diagrama Casos de Uso](https://raw.githubusercontent.com/v4gn32/tecsolutions/main/documentos/img/Diagrama_Casos_de_Uso.png)
+
 | ID     | Nome do Caso de Uso               | Ator                    | Descrição                                                             | Pré-condições               | Pós-condições                           |
 | ------ | --------------------------------- | ----------------------- | --------------------------------------------------------------------- | --------------------------- | --------------------------------------- |
 | UC-001 | Autenticar no Sistema             | Usuário / Administrador | Realiza login com e-mail e senha.                                     | -                           | Usuário autenticado ou erro exibido.    |
 | UC-002 | Gerenciar Propostas               | Administrador           | Criar, editar, excluir e visualizar propostas comerciais.             | Administrador autenticado   | Propostas registradas na base de dados. |
 | UC-003 | Gerenciar Cronograma              | Administrador / Usuário | Registrar e atualizar cronogramas de atendimento.                     | Usuário autenticado         | Cronograma atualizado.                  |
 | UC-004 | Visualizar Relatórios             | Administrador           | Exibe relatórios com base nos dados do sistema.                        | Dados disponíveis           | Relatório visualizado.                  |
-| UC-005 | Gerenciar Clientes e Serviços     | Administrador           | Cadastrar, editar e excluir clientes e serviços.                       | Administrador autenticado   | Dados atualizados na base.               |
-| UC-006 | Exportar Dados                    | Administrador           | Gerar arquivos PDF/Excel para relatórios e propostas.                  | Dados disponíveis           | Arquivo exportado.                       |
+| UC-005 | Gerenciar Clientes e Serviços     | Administrador           | Cadastrar, editar e excluir clientes e serviços.                       | Administrador autenticado   | Dados atualizados na base.              |
+| UC-006 | Exportar Dados                    | Administrador           | Gerar arquivos PDF/Excel para relatórios e propostas.                  | Dados disponíveis           | Arquivo exportado.                      |
 
 ---
 
 ## 🔒 Segurança
 
-- Autenticação por e-mail e senha forte
-- Tokens expirados após período de inatividade
-- Acesso restrito por roles
-- Armazenamento seguro das informações
+- Autenticação por e-mail e senha forte  
+- Tokens expirados após período de inatividade  
+- Acesso restrito por roles  
+- Armazenamento seguro das informações  
 
 ---
 
 ## 💼 Modelo de Negócio
 
-- Licença de uso via assinatura mensal (SaaS)
-- Implantação e treinamento inclusos no valor inicial
-- Planos escaláveis por número de usuários ou módulos
+- Licença de uso via assinatura mensal (SaaS)  
+- Implantação e treinamento inclusos no valor inicial  
+- Planos escaláveis por número de usuários ou módulos  
 
 ---
 
 ## 🧱 Estrutura de Banco de Dados (PostgreSQL)
 
-- **users:** nome, email, senha criptografada, role, data de criação
-- **proposals:** cliente, valor total, serviços, status, data de criação
-- **schedule:** cliente, data, serviço, status, responsável
-- **clients:** nome, contato, endereço, histórico
-- **services:** nome, descrição, valor
-- **products:** nome, descrição, valor
-- **reports:** tipo, período, dados gerados
+- **users:** nome, email, senha criptografada, role, data de criação  
+- **proposals:** cliente, valor total, serviços, status, data de criação  
+- **schedule:** cliente, data, serviço, status, responsável  
+- **clients:** nome, contato, endereço, histórico  
+- **services:** nome, descrição, valor  
+- **products:** nome, descrição, valor  
+- **reports:** tipo, período, dados gerados  
 
 ---
 
@@ -156,9 +167,9 @@ A mensalidade cobre atualizações, monitoramento, suporte técnico e pequenas m
 | Sprint 1 - Planejamento              | 3 dias           | Levantamento de requisitos e estrutura inicial. |
 | Sprint 2 - Backend Inicial           | 5 dias           | Autenticação, cadastro de usuários, API base.   |
 | Sprint 3 - Frontend Inicial          | 4 dias           | Layout inicial, telas de login e dashboard.     |
-| Sprint 4 - Módulo de Propostas        | 6 dias           | CRUD de propostas e exportação PDF/Excel.       |
-| Sprint 5 - Módulo de Cronograma       | 5 dias           | Registro e visualização de agendamentos.        |
-| Sprint 6 - Módulo de Relatórios       | 4 dias           | Geração e visualização de relatórios.           |
-| Sprint 7 - Ajustes Finais e Deploy    | 2 dias           | Testes finais e publicação.                     |
+| Sprint 4 - Módulo de Propostas       | 6 dias           | CRUD de propostas e exportação PDF/Excel.       |
+| Sprint 5 - Módulo de Cronograma      | 5 dias           | Registro e visualização de agendamentos.        |
+| Sprint 6 - Módulo de Relatórios      | 4 dias           | Geração e visualização de relatórios.           |
+| Sprint 7 - Ajustes Finais e Deploy   | 2 dias           | Testes finais e publicação.                     |
 
-**Total estimado: 29 dias úteis**
+**Total estimado: 29 dias úteis**  
