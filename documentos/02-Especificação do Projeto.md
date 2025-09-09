@@ -21,11 +21,11 @@ Desenvolver uma plataforma online chamada **TecSolutions**, que permita o gerenc
 
 ## 🛠️ Arquitetura e Tecnologias
 
-- **Frontend:** React.js + TailwindCSS
-- **Backend:** Node.js + Express
+- **Frontend:** Vite + React + TypeScript + TailwindCSS 
+- **Backend:** Node.js + Express(MVC) + Prisma ORM
 - **Banco de Dados:** PostgreSQL
 - **Autenticação:** JWT com roles (admin e usuário)
-- **Hospedagem:** Render (backend), Netlify (frontend)
+- **Hospedagem:** Render (backend, frontend)
 - **Integrações Futuras:** API para importação/exportação de dados (Excel, PDF)
 
 > Um diagrama de arquitetura será criado para representar a interação entre os módulos da plataforma.
