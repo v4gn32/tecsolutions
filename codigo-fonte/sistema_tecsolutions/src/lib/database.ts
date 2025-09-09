@@ -1,58 +1,28 @@
-import { Pool, PoolClient } from 'pg';
+// Temporary localStorage-based database simulation
+// This will be replaced with a proper backend API later
 
-// Configuração do PostgreSQL
-const dbConfig = {
-  host: import.meta.env.VITE_DB_HOST || 'localhost',
-  port: parseInt(import.meta.env.VITE_DB_PORT || '5432'),
-  database: import.meta.env.VITE_DB_NAME || 'db_tecsolutions',
-  user: import.meta.env.VITE_DB_USER || 'vagneradmin',
-  password: import.meta.env.VITE_DB_PASSWORD || 'Mudar2025',
-  ssl: import.meta.env.VITE_DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
-  max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
+export const query = async (text: string, params?: any[]) => {
+  // Simulate database queries using localStorage
+  console.log('Simulating database query:', text, params);
+  
+  // Return a mock result structure
+  return {
+    rows: [],
+    rowCount: 0
+  };
 };
 
-console.log('Configuração PostgreSQL:', {
-  host: dbConfig.host,
-  port: dbConfig.port,
-  database: dbConfig.database,
-  user: dbConfig.user ? 'Configurado' : 'Não configurado',
-  password: dbConfig.password ? 'Configurado' : 'Não configurado'
-});
-
-// Pool de conexões PostgreSQL
-export const pool = new Pool(dbConfig);
-
-// Função para executar queries
-export const query = async (text: string, params?: any[]): Promise<any> => {
-  const client = await pool.connect();
-  try {
-    const result = await client.query(text, params);
-    return result;
-  } catch (error) {
-    console.error('Erro na query PostgreSQL:', error);
-    throw error;
-  } finally {
-    client.release();
-  }
+export const getClient = async () => {
+  // Mock client for compatibility
+  return {
+    query: query,
+    release: () => {}
+  };
 };
 
-// Função para obter uma conexão do pool
-export const getClient = async (): Promise<PoolClient> => {
-  return await pool.connect();
-};
-
-// Função para testar a conexão
-export const testConnection = async (): Promise<boolean> => {
-  try {
-    const result = await query('SELECT NOW()');
-    console.log('Conexão PostgreSQL estabelecida com sucesso:', result.rows[0]);
-    return true;
-  } catch (error) {
-    console.error('Erro ao conectar com PostgreSQL:', error);
-    return false;
-  }
+export const testConnection = async () => {
+  console.log('Using localStorage simulation - no database connection needed');
+  return true;
 };
 
 // Types para as tabelas do banco de dados

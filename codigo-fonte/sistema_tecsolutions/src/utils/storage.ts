@@ -1,90 +1,63 @@
-import { Client, Service, Product, Proposal, HardwareInventory, SoftwareInventory } from '../types';
-import {
-  getClientsFromSupabase,
-  saveClientToSupabase,
-  deleteClientFromSupabase,
-  getServicesFromSupabase,
-  saveServiceToSupabase,
-  deleteServiceFromSupabase,
-  getProductsFromSupabase,
-  saveProductToSupabase,
-  deleteProductFromSupabase,
-  getProposalsFromSupabase,
-  saveProposalToSupabase,
-  deleteProposalFromSupabase,
-  getHardwareInventoryFromSupabase,
-  saveHardwareInventoryToSupabase,
-  deleteHardwareInventoryFromSupabase,
-  getHardwareByClientFromSupabase,
-  getSoftwareInventoryFromSupabase,
-  saveSoftwareInventoryToSupabase,
-  deleteSoftwareInventoryFromSupabase,
-  getSoftwareByClientFromSupabase,
-  getServiceRecordsFromSupabase,
-  saveServiceRecordToSupabase,
-  deleteServiceRecordFromSupabase,
-  getServiceRecordsByClientFromSupabase
-} from './supabaseStorage';
+import { Client, Service, Product, Proposal, HardwareInventory, SoftwareInventory, ServiceRecord } from '../types';
+import { v4 as uuidv4 } from 'uuid';
+
+// Temporary localStorage implementation
+// This will be replaced with proper API calls to a backend later
 
 const STORAGE_KEYS = {
   CLIENTS: 'tecsolutions_clients',
   SERVICES: 'tecsolutions_services',
   PRODUCTS: 'tecsolutions_products',
   PROPOSALS: 'tecsolutions_proposals',
-  HARDWARE_INVENTORY: 'tecsolutions_hardware_inventory',
-  SOFTWARE_INVENTORY: 'tecsolutions_software_inventory',
+  HARDWARE: 'tecsolutions_hardware',
+  SOFTWARE: 'tecsolutions_software',
+  SERVICE_RECORDS: 'tecsolutions_service_records'
 };
 
-// Check if we should use Supabase or localStorage
-const useSupabase = () => {
-  const hasSupabaseConfig = !!(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY);
-  console.log('Verificando configuração Supabase:', {
-    hasUrl: !!import.meta.env.VITE_SUPABASE_URL,
-    hasKey: !!import.meta.env.VITE_SUPABASE_ANON_KEY,
-    useSupabase: hasSupabaseConfig
-  });
-  return hasSupabaseConfig;
+const getFromStorage = <T>(key: string): T[] => {
+  try {
+    const data = localStorage.getItem(key);
+    return data ? JSON.parse(data) : [];
+  } catch (error) {
+    console.error(`Error reading from localStorage key ${key}:`, error);
+    return [];
+  }
+};
+
+const saveToStorage = <T>(key: string, data: T[]): void => {
+  try {
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch (error) {
+    console.error(`Error saving to localStorage key ${key}:`, error);
+  }
 };
 
 // Clients
 export const getClients = async (): Promise<Client[]> => {
-  console.log('Carregando clientes...');
-  
-  if (useSupabase()) {
-    console.log('Carregando do Supabase');
-    return await getClientsFromSupabase();
+  try {
+    const clients = getFromStorage<Client>(STORAGE_KEYS.CLIENTS);
+    return clients.map(client => ({
+      ...client,
+      createdAt: new Date(client.createdAt)
+    })).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  } catch (error) {
+    console.error('Erro ao buscar clientes:', error);
+    return [];
   }
-  
-  console.log('Carregando do localStorage');
-  const data = localStorage.getItem(STORAGE_KEYS.CLIENTS);
-  const clients = data ? JSON.parse(data) : [];
-  console.log('Clientes carregados:', clients);
-  return clients;
 };
 
 export const saveClient = async (client: Client): Promise<void> => {
-  console.log('Tentando salvar cliente:', client);
-  
   try {
-    if (useSupabase()) {
-      console.log('Usando Supabase para salvar cliente');
-      return await saveClientToSupabase(client);
-    }
-    
-    console.log('Usando localStorage para salvar cliente');
-    const clients = await getClients();
+    const clients = getFromStorage<Client>(STORAGE_KEYS.CLIENTS);
     const existingIndex = clients.findIndex(c => c.id === client.id);
     
     if (existingIndex >= 0) {
       clients[existingIndex] = client;
-      console.log('Cliente atualizado na posição:', existingIndex);
     } else {
       clients.push(client);
-      console.log('Novo cliente adicionado. Total de clientes:', clients.length);
     }
     
-    localStorage.setItem(STORAGE_KEYS.CLIENTS, JSON.stringify(clients));
-    console.log('Cliente salvo no localStorage com sucesso');
+    saveToStorage(STORAGE_KEYS.CLIENTS, clients);
   } catch (error) {
     console.error('Erro ao salvar cliente:', error);
     throw error;
@@ -92,406 +65,547 @@ export const saveClient = async (client: Client): Promise<void> => {
 };
 
 export const deleteClient = async (id: string): Promise<void> => {
-  if (useSupabase()) {
-    return await deleteClientFromSupabase(id);
+  try {
+    const clients = getFromStorage<Client>(STORAGE_KEYS.CLIENTS);
+    const filteredClients = clients.filter(c => c.id !== id);
+    saveToStorage(STORAGE_KEYS.CLIENTS, filteredClients);
+  } catch (error) {
+    console.error('Erro ao deletar cliente:', error);
+    throw error;
   }
-  
-  const clients = getClients().filter(c => c.id !== id);
-  localStorage.setItem(STORAGE_KEYS.CLIENTS, JSON.stringify(clients));
 };
 
 // Services
 export const getServices = async (): Promise<Service[]> => {
-  if (useSupabase()) {
-    return await getServicesFromSupabase();
+  try {
+    const services = getFromStorage<Service>(STORAGE_KEYS.SERVICES);
+    return services.map(service => ({
+      ...service,
+      createdAt: new Date(service.createdAt)
+    })).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  } catch (error) {
+    console.error('Erro ao buscar serviços:', error);
+    return [];
   }
-  
-  const data = localStorage.getItem(STORAGE_KEYS.SERVICES);
-  return data ? JSON.parse(data) : [];
 };
 
 export const saveService = async (service: Service): Promise<void> => {
-  if (useSupabase()) {
-    return await saveServiceToSupabase(service);
+  try {
+    const services = getFromStorage<Service>(STORAGE_KEYS.SERVICES);
+    const existingIndex = services.findIndex(s => s.id === service.id);
+    
+    if (existingIndex >= 0) {
+      services[existingIndex] = service;
+    } else {
+      services.push(service);
+    }
+    
+    saveToStorage(STORAGE_KEYS.SERVICES, services);
+  } catch (error) {
+    console.error('Erro ao salvar serviço:', error);
+    throw error;
   }
-  
-  const services = getServices();
-  const existingIndex = services.findIndex(s => s.id === service.id);
-  
-  if (existingIndex >= 0) {
-    services[existingIndex] = service;
-  } else {
-    services.push(service);
-  }
-  
-  localStorage.setItem(STORAGE_KEYS.SERVICES, JSON.stringify(services));
 };
 
 export const deleteService = async (id: string): Promise<void> => {
-  if (useSupabase()) {
-    return await deleteServiceFromSupabase(id);
+  try {
+    await query('DELETE FROM services WHERE id = $1', [id]);
+  } catch (error) {
+    console.error('Erro ao deletar serviço:', error);
+    throw error;
   }
-  
-  const services = getServices().filter(s => s.id !== id);
-  localStorage.setItem(STORAGE_KEYS.SERVICES, JSON.stringify(services));
 };
 
 // Products
 export const getProducts = async (): Promise<Product[]> => {
-  if (useSupabase()) {
-    return await getProductsFromSupabase();
+  try {
+    const result = await query('SELECT * FROM products ORDER BY created_at DESC');
+    return result.rows.map((product: any) => ({
+      id: product.id,
+      name: product.name,
+      description: product.description,
+      price: parseFloat(product.price),
+      category: product.category as Product['category'],
+      unit: product.unit,
+      brand: product.brand,
+      model: product.model,
+      stock: product.stock,
+      createdAt: new Date(product.created_at)
+    }));
+  } catch (error) {
+    console.error('Erro ao buscar produtos:', error);
+    return [];
   }
-  
-  const data = localStorage.getItem(STORAGE_KEYS.PRODUCTS);
-  return data ? JSON.parse(data) : [];
 };
 
 export const saveProduct = async (product: Product): Promise<void> => {
-  if (useSupabase()) {
-    return await saveProductToSupabase(product);
+  try {
+    const sql = `
+      INSERT INTO products (id, name, description, price, category, unit, brand, model, stock, created_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      ON CONFLICT (id) DO UPDATE SET
+        name = EXCLUDED.name,
+        description = EXCLUDED.description,
+        price = EXCLUDED.price,
+        category = EXCLUDED.category,
+        unit = EXCLUDED.unit,
+        brand = EXCLUDED.brand,
+        model = EXCLUDED.model,
+        stock = EXCLUDED.stock
+    `;
+    await query(sql, [
+      product.id,
+      product.name,
+      product.description,
+      product.price,
+      product.category,
+      product.unit,
+      product.brand,
+      product.model,
+      product.stock,
+      product.createdAt.toISOString()
+    ]);
+  } catch (error) {
+    console.error('Erro ao salvar produto:', error);
+    throw error;
   }
-  
-  const products = getProducts();
-  const existingIndex = products.findIndex(p => p.id === product.id);
-  
-  if (existingIndex >= 0) {
-    products[existingIndex] = product;
-  } else {
-    products.push(product);
-  }
-  
-  localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(products));
 };
 
 export const deleteProduct = async (id: string): Promise<void> => {
-  if (useSupabase()) {
-    return await deleteProductFromSupabase(id);
+  try {
+    await query('DELETE FROM products WHERE id = $1', [id]);
+  } catch (error) {
+    console.error('Erro ao deletar produto:', error);
+    throw error;
   }
-  
-  const products = getProducts().filter(p => p.id !== id);
-  localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(products));
 };
 
 // Proposals
 export const getProposals = async (): Promise<Proposal[]> => {
-  if (useSupabase()) {
-    return await getProposalsFromSupabase();
+  try {
+    const result = await query('SELECT * FROM proposals ORDER BY created_at DESC');
+    return result.rows.map((proposal: any) => ({
+      id: proposal.id,
+      clientId: proposal.client_id,
+      number: proposal.number,
+      title: proposal.title,
+      description: proposal.description,
+      items: proposal.items,
+      productItems: proposal.product_items,
+      subtotal: parseFloat(proposal.subtotal),
+      discount: parseFloat(proposal.discount),
+      total: parseFloat(proposal.total),
+      status: proposal.status as Proposal['status'],
+      validUntil: new Date(proposal.valid_until),
+      notes: proposal.notes,
+      createdAt: new Date(proposal.created_at),
+      updatedAt: new Date(proposal.updated_at)
+    }));
+  } catch (error) {
+    console.error('Erro ao buscar propostas:', error);
+    return [];
   }
-  
-  const data = localStorage.getItem(STORAGE_KEYS.PROPOSALS);
-  return data ? JSON.parse(data) : [];
 };
 
 export const saveProposal = async (proposal: Proposal): Promise<void> => {
-  if (useSupabase()) {
-    return await saveProposalToSupabase(proposal);
+  try {
+    const sql = `
+      INSERT INTO proposals (id, client_id, number, title, description, items, product_items, subtotal, discount, total, status, valid_until, notes, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+      ON CONFLICT (id) DO UPDATE SET
+        client_id = EXCLUDED.client_id,
+        number = EXCLUDED.number,
+        title = EXCLUDED.title,
+        description = EXCLUDED.description,
+        items = EXCLUDED.items,
+        product_items = EXCLUDED.product_items,
+        subtotal = EXCLUDED.subtotal,
+        discount = EXCLUDED.discount,
+        total = EXCLUDED.total,
+        status = EXCLUDED.status,
+        valid_until = EXCLUDED.valid_until,
+        notes = EXCLUDED.notes,
+        updated_at = NOW()
+    `;
+    await query(sql, [
+      proposal.id,
+      proposal.clientId,
+      proposal.number,
+      proposal.title,
+      proposal.description,
+      JSON.stringify(proposal.items),
+      JSON.stringify(proposal.productItems),
+      proposal.subtotal,
+      proposal.discount,
+      proposal.total,
+      proposal.status,
+      proposal.validUntil.toISOString().split('T')[0],
+      proposal.notes,
+      proposal.createdAt.toISOString(),
+      proposal.updatedAt.toISOString()
+    ]);
+  } catch (error) {
+    console.error('Erro ao salvar proposta:', error);
+    throw error;
   }
-  
-  const proposals = getProposals();
-  const existingIndex = proposals.findIndex(p => p.id === proposal.id);
-  
-  if (existingIndex >= 0) {
-    proposals[existingIndex] = proposal;
-  } else {
-    proposals.push(proposal);
-  }
-  
-  localStorage.setItem(STORAGE_KEYS.PROPOSALS, JSON.stringify(proposals));
 };
 
 export const deleteProposal = async (id: string): Promise<void> => {
-  if (useSupabase()) {
-    return await deleteProposalFromSupabase(id);
+  try {
+    await query('DELETE FROM proposals WHERE id = $1', [id]);
+  } catch (error) {
+    console.error('Erro ao deletar proposta:', error);
+    throw error;
   }
-  
-  const proposals = getProposals().filter(p => p.id !== id);
-  localStorage.setItem(STORAGE_KEYS.PROPOSALS, JSON.stringify(proposals));
 };
 
 // Hardware Inventory
 export const getHardwareInventory = async (): Promise<HardwareInventory[]> => {
-  if (useSupabase()) {
-    return await getHardwareInventoryFromSupabase();
+  try {
+    const result = await query('SELECT * FROM hardware_inventory ORDER BY created_at DESC');
+    return result.rows.map((hardware: any) => ({
+      id: hardware.id,
+      clientId: hardware.client_id,
+      brand: hardware.brand,
+      model: hardware.model,
+      serialNumber: hardware.serial_number,
+      processor: hardware.processor,
+      memory: hardware.memory,
+      storage: hardware.storage,
+      operatingSystem: hardware.operating_system,
+      deviceName: hardware.device_name,
+      office: hardware.office,
+      antivirus: hardware.antivirus,
+      username: hardware.username,
+      password: hardware.password,
+      pin: hardware.pin,
+      warranty: hardware.warranty,
+      createdAt: new Date(hardware.created_at),
+      updatedAt: new Date(hardware.updated_at)
+    }));
+  } catch (error) {
+    console.error('Erro ao buscar inventário de hardware:', error);
+    return [];
   }
-  
-  const data = localStorage.getItem(STORAGE_KEYS.HARDWARE_INVENTORY);
-  return data ? JSON.parse(data) : [];
 };
 
 export const saveHardwareInventory = async (hardware: HardwareInventory): Promise<void> => {
-  if (useSupabase()) {
-    return await saveHardwareInventoryToSupabase(hardware);
+  try {
+    const sql = `
+      INSERT INTO hardware_inventory (id, client_id, brand, model, serial_number, processor, memory, storage, operating_system, device_name, office, antivirus, username, password, pin, warranty, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+      ON CONFLICT (id) DO UPDATE SET
+        client_id = EXCLUDED.client_id,
+        brand = EXCLUDED.brand,
+        model = EXCLUDED.model,
+        serial_number = EXCLUDED.serial_number,
+        processor = EXCLUDED.processor,
+        memory = EXCLUDED.memory,
+        storage = EXCLUDED.storage,
+        operating_system = EXCLUDED.operating_system,
+        device_name = EXCLUDED.device_name,
+        office = EXCLUDED.office,
+        antivirus = EXCLUDED.antivirus,
+        username = EXCLUDED.username,
+        password = EXCLUDED.password,
+        pin = EXCLUDED.pin,
+        warranty = EXCLUDED.warranty,
+        updated_at = NOW()
+    `;
+    await query(sql, [
+      hardware.id,
+      hardware.clientId,
+      hardware.brand,
+      hardware.model,
+      hardware.serialNumber,
+      hardware.processor,
+      hardware.memory,
+      hardware.storage,
+      hardware.operatingSystem,
+      hardware.deviceName,
+      hardware.office,
+      hardware.antivirus,
+      hardware.username,
+      hardware.password,
+      hardware.pin,
+      hardware.warranty,
+      hardware.createdAt.toISOString(),
+      hardware.updatedAt.toISOString()
+    ]);
+  } catch (error) {
+    console.error('Erro ao salvar inventário de hardware:', error);
+    throw error;
   }
-  
-  const inventory = getHardwareInventory();
-  const existingIndex = inventory.findIndex(h => h.id === hardware.id);
-  
-  if (existingIndex >= 0) {
-    inventory[existingIndex] = hardware;
-  } else {
-    inventory.push(hardware);
-  }
-  
-  localStorage.setItem(STORAGE_KEYS.HARDWARE_INVENTORY, JSON.stringify(inventory));
 };
 
 export const deleteHardwareInventory = async (id: string): Promise<void> => {
-  if (useSupabase()) {
-    return await deleteHardwareInventoryFromSupabase(id);
+  try {
+    await query('DELETE FROM hardware_inventory WHERE id = $1', [id]);
+  } catch (error) {
+    console.error('Erro ao deletar inventário de hardware:', error);
+    throw error;
   }
-  
-  const inventory = getHardwareInventory().filter(h => h.id !== id);
-  localStorage.setItem(STORAGE_KEYS.HARDWARE_INVENTORY, JSON.stringify(inventory));
 };
 
 export const getHardwareByClient = async (clientId: string): Promise<HardwareInventory[]> => {
-  if (useSupabase()) {
-    return await getHardwareByClientFromSupabase(clientId);
+  try {
+    const result = await query('SELECT * FROM hardware_inventory WHERE client_id = $1 ORDER BY created_at DESC', [clientId]);
+    return result.rows.map((hardware: any) => ({
+      id: hardware.id,
+      clientId: hardware.client_id,
+      brand: hardware.brand,
+      model: hardware.model,
+      serialNumber: hardware.serial_number,
+      processor: hardware.processor,
+      memory: hardware.memory,
+      storage: hardware.storage,
+      operatingSystem: hardware.operating_system,
+      deviceName: hardware.device_name,
+      office: hardware.office,
+      antivirus: hardware.antivirus,
+      username: hardware.username,
+      password: hardware.password,
+      pin: hardware.pin,
+      warranty: hardware.warranty,
+      createdAt: new Date(hardware.created_at),
+      updatedAt: new Date(hardware.updated_at)
+    }));
+  } catch (error) {
+    console.error('Erro ao buscar hardware por cliente:', error);
+    return [];
   }
-  
-  return getHardwareInventory().filter(h => h.clientId === clientId);
 };
 
 // Software Inventory
 export const getSoftwareInventory = async (): Promise<SoftwareInventory[]> => {
-  if (useSupabase()) {
-    return await getSoftwareInventoryFromSupabase();
+  try {
+    const result = await query('SELECT * FROM software_inventory ORDER BY created_at DESC');
+    return result.rows.map((software: any) => ({
+      id: software.id,
+      clientId: software.client_id,
+      login: software.login,
+      password: software.password,
+      softwareName: software.software_name,
+      softwareType: software.software_type as SoftwareInventory['softwareType'],
+      expirationAlert: new Date(software.expiration_alert),
+      monthlyValue: software.monthly_value ? parseFloat(software.monthly_value) : undefined,
+      annualValue: software.annual_value ? parseFloat(software.annual_value) : undefined,
+      userControl: software.user_control as SoftwareInventory['userControl'],
+      createdAt: new Date(software.created_at),
+      updatedAt: new Date(software.updated_at)
+    }));
+  } catch (error) {
+    console.error('Erro ao buscar inventário de software:', error);
+    return [];
   }
-  
-  const data = localStorage.getItem(STORAGE_KEYS.SOFTWARE_INVENTORY);
-  return data ? JSON.parse(data) : [];
 };
 
 export const saveSoftwareInventory = async (software: SoftwareInventory): Promise<void> => {
-  if (useSupabase()) {
-    return await saveSoftwareInventoryToSupabase(software);
+  try {
+    const sql = `
+      INSERT INTO software_inventory (id, client_id, login, password, software_name, software_type, expiration_alert, monthly_value, annual_value, user_control, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      ON CONFLICT (id) DO UPDATE SET
+        client_id = EXCLUDED.client_id,
+        login = EXCLUDED.login,
+        password = EXCLUDED.password,
+        software_name = EXCLUDED.software_name,
+        software_type = EXCLUDED.software_type,
+        expiration_alert = EXCLUDED.expiration_alert,
+        monthly_value = EXCLUDED.monthly_value,
+        annual_value = EXCLUDED.annual_value,
+        user_control = EXCLUDED.user_control,
+        updated_at = NOW()
+    `;
+    await query(sql, [
+      software.id,
+      software.clientId,
+      software.login,
+      software.password,
+      software.softwareName,
+      software.softwareType,
+      software.expirationAlert.toISOString().split('T')[0],
+      software.monthlyValue,
+      software.annualValue,
+      software.userControl,
+      software.createdAt.toISOString(),
+      software.updatedAt.toISOString()
+    ]);
+  } catch (error) {
+    console.error('Erro ao salvar inventário de software:', error);
+    throw error;
   }
-  
-  const inventory = getSoftwareInventory();
-  const existingIndex = inventory.findIndex(s => s.id === software.id);
-  
-  if (existingIndex >= 0) {
-    inventory[existingIndex] = software;
-  } else {
-    inventory.push(software);
-  }
-  
-  localStorage.setItem(STORAGE_KEYS.SOFTWARE_INVENTORY, JSON.stringify(inventory));
 };
 
 export const deleteSoftwareInventory = async (id: string): Promise<void> => {
-  if (useSupabase()) {
-    return await deleteSoftwareInventoryFromSupabase(id);
+  try {
+    await query('DELETE FROM software_inventory WHERE id = $1', [id]);
+  } catch (error) {
+    console.error('Erro ao deletar inventário de software:', error);
+    throw error;
   }
-  
-  const inventory = getSoftwareInventory().filter(s => s.id !== id);
-  localStorage.setItem(STORAGE_KEYS.SOFTWARE_INVENTORY, JSON.stringify(inventory));
 };
 
 export const getSoftwareByClient = async (clientId: string): Promise<SoftwareInventory[]> => {
-  if (useSupabase()) {
-    return await getSoftwareByClientFromSupabase(clientId);
+  try {
+    const result = await query('SELECT * FROM software_inventory WHERE client_id = $1 ORDER BY created_at DESC', [clientId]);
+    return result.rows.map((software: any) => ({
+      id: software.id,
+      clientId: software.client_id,
+      login: software.login,
+      password: software.password,
+      softwareName: software.software_name,
+      softwareType: software.software_type as SoftwareInventory['softwareType'],
+      expirationAlert: new Date(software.expiration_alert),
+      monthlyValue: software.monthly_value ? parseFloat(software.monthly_value) : undefined,
+      annualValue: software.annual_value ? parseFloat(software.annual_value) : undefined,
+      userControl: software.user_control as SoftwareInventory['userControl'],
+      createdAt: new Date(software.created_at),
+      updatedAt: new Date(software.updated_at)
+    }));
+  } catch (error) {
+    console.error('Erro ao buscar software por cliente:', error);
+    return [];
   }
-  
-  return getSoftwareInventory().filter(s => s.clientId === clientId);
 };
 
 // Service Records
 export const getServiceRecords = async (): Promise<ServiceRecord[]> => {
-  if (useSupabase()) {
-    return await getServiceRecordsFromSupabase();
+  try {
+    const result = await query('SELECT * FROM service_records ORDER BY date DESC, created_at DESC');
+    return result.rows.map((record: any) => ({
+      id: record.id,
+      clientId: record.client_id,
+      type: record.type as ServiceRecord['type'],
+      date: new Date(record.date),
+      description: record.description,
+      services: record.services,
+      arrivalTime: record.arrival_time,
+      departureTime: record.departure_time,
+      lunchBreak: record.lunch_break,
+      totalHours: record.total_hours ? parseFloat(record.total_hours) : undefined,
+      deviceReceived: record.device_received,
+      deviceReturned: record.device_returned,
+      labServices: record.lab_services,
+      thirdPartyCompany: record.third_party_company,
+      sentDate: record.sent_date ? new Date(record.sent_date) : undefined,
+      returnedDate: record.returned_date ? new Date(record.returned_date) : undefined,
+      cost: record.cost ? parseFloat(record.cost) : undefined,
+      createdAt: new Date(record.created_at),
+      updatedAt: new Date(record.updated_at),
+      createdBy: record.created_by
+    }));
+  } catch (error) {
+    console.error('Erro ao buscar registros de serviço:', error);
+    return [];
   }
-  
-  const data = localStorage.getItem(STORAGE_KEYS.SERVICE_RECORDS);
-  return data ? JSON.parse(data) : [];
 };
 
 export const saveServiceRecord = async (record: ServiceRecord): Promise<void> => {
-  if (useSupabase()) {
-    return await saveServiceRecordToSupabase(record);
+  try {
+    const sql = `
+      INSERT INTO service_records (id, client_id, type, date, description, services, arrival_time, departure_time, lunch_break, total_hours, device_received, device_returned, lab_services, third_party_company, sent_date, returned_date, cost, created_at, updated_at, created_by)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+      ON CONFLICT (id) DO UPDATE SET
+        client_id = EXCLUDED.client_id,
+        type = EXCLUDED.type,
+        date = EXCLUDED.date,
+        description = EXCLUDED.description,
+        services = EXCLUDED.services,
+        arrival_time = EXCLUDED.arrival_time,
+        departure_time = EXCLUDED.departure_time,
+        lunch_break = EXCLUDED.lunch_break,
+        total_hours = EXCLUDED.total_hours,
+        device_received = EXCLUDED.device_received,
+        device_returned = EXCLUDED.device_returned,
+        lab_services = EXCLUDED.lab_services,
+        third_party_company = EXCLUDED.third_party_company,
+        sent_date = EXCLUDED.sent_date,
+        returned_date = EXCLUDED.returned_date,
+        cost = EXCLUDED.cost,
+        updated_at = NOW(),
+        created_by = EXCLUDED.created_by
+    `;
+    await query(sql, [
+      record.id,
+      record.clientId,
+      record.type,
+      record.date.toISOString().split('T')[0],
+      record.description,
+      record.services,
+      record.arrivalTime,
+      record.departureTime,
+      record.lunchBreak,
+      record.totalHours,
+      record.deviceReceived,
+      record.deviceReturned,
+      record.labServices,
+      record.thirdPartyCompany,
+      record.sentDate ? record.sentDate.toISOString().split('T')[0] : null,
+      record.returnedDate ? record.returnedDate.toISOString().split('T')[0] : null,
+      record.cost,
+      record.createdAt.toISOString(),
+      record.updatedAt.toISOString(),
+      record.createdBy
+    ]);
+  } catch (error) {
+    console.error('Erro ao salvar registro de serviço:', error);
+    throw error;
   }
-  
-  const records = getServiceRecords();
-  const existingIndex = records.findIndex(r => r.id === record.id);
-  
-  if (existingIndex >= 0) {
-    records[existingIndex] = record;
-  } else {
-    records.push(record);
-  }
-  
-  localStorage.setItem(STORAGE_KEYS.SERVICE_RECORDS, JSON.stringify(records));
 };
 
 export const deleteServiceRecord = async (id: string): Promise<void> => {
-  if (useSupabase()) {
-    return await deleteServiceRecordFromSupabase(id);
+  try {
+    await query('DELETE FROM service_records WHERE id = $1', [id]);
+  } catch (error) {
+    console.error('Erro ao deletar registro de serviço:', error);
+    throw error;
   }
-  
-  const records = getServiceRecords().filter(r => r.id !== id);
-  localStorage.setItem(STORAGE_KEYS.SERVICE_RECORDS, JSON.stringify(records));
 };
 
 export const getServiceRecordsByClient = async (clientId: string): Promise<ServiceRecord[]> => {
-  if (useSupabase()) {
-    return await getServiceRecordsByClientFromSupabase(clientId);
+  try {
+    const result = await query('SELECT * FROM service_records WHERE client_id = $1 ORDER BY date DESC, created_at DESC', [clientId]);
+    return result.rows.map((record: any) => ({
+      id: record.id,
+      clientId: record.client_id,
+      type: record.type as ServiceRecord['type'],
+      date: new Date(record.date),
+      description: record.description,
+      services: record.services,
+      arrivalTime: record.arrival_time,
+      departureTime: record.departure_time,
+      lunchBreak: record.lunch_break,
+      totalHours: record.total_hours ? parseFloat(record.total_hours) : undefined,
+      deviceReceived: record.device_received,
+      deviceReturned: record.device_returned,
+      labServices: record.lab_services,
+      thirdPartyCompany: record.third_party_company,
+      sentDate: record.sent_date ? new Date(record.sent_date) : undefined,
+      returnedDate: record.returned_date ? new Date(record.returned_date) : undefined,
+      cost: record.cost ? parseFloat(record.cost) : undefined,
+      createdAt: new Date(record.created_at),
+      updatedAt: new Date(record.updated_at),
+      createdBy: record.created_by
+    }));
+  } catch (error) {
+    console.error('Erro ao buscar registros de serviço por cliente:', error);
+    return [];
   }
-  
-  return getServiceRecords().filter(r => r.clientId === clientId);
 };
 
-// Initialize with mock data if empty
-export const initializeStorage = async (): Promise<void> => {
-  // Skip initialization if using Supabase (data is already in database)
-  if (useSupabase()) {
-    return;
-  }
-  
-  const clients = await getClients();
-  if (clients.length === 0) {
-    const mockClients = [
-      {
-        id: '1',
-        name: 'João Silva',
-        email: 'joao@empresa.com',
-        phone: '(11) 99999-9999',
-        company: 'Empresa ABC Ltda',
-        cnpj: '12.345.678/0001-90',
-        address: 'Rua das Flores, 123 - São Paulo, SP',
-        type: 'contrato',
-        createdAt: new Date('2024-01-15'),
-      },
-      {
-        id: '2',
-        name: 'Maria Santos',
-        email: 'maria@comercio.com',
-        phone: '(11) 88888-8888',
-        company: 'Comércio XYZ',
-        cnpj: '98.765.432/0001-10',
-        address: 'Av. Paulista, 456 - São Paulo, SP',
-        type: 'avulso',
-        createdAt: new Date('2024-01-20'),
-      },
-    ];
-    localStorage.setItem(STORAGE_KEYS.CLIENTS, JSON.stringify(mockClients));
-  }
+// Utility functions
+export const generateId = (): string => {
+  return uuidv4();
+};
 
-  const services = await getServices();
-  if (services.length === 0) {
-    const mockServices = [
-      {
-        id: '1',
-        name: 'Configuração de Servidor',
-        description: 'Instalação e configuração completa de servidor Windows/Linux',
-        price: 800,
-        category: 'infraestrutura',
-        unit: 'unidade',
-        createdAt: new Date('2024-01-10'),
-      },
-      {
-        id: '2',
-        name: 'Suporte Técnico Premium',
-        description: 'Suporte técnico 24/7 com atendimento prioritário',
-        price: 150,
-        category: 'helpdesk',
-        unit: 'mês',
-        createdAt: new Date('2024-01-10'),
-      },
-      {
-        id: '3',
-        name: 'Backup em Nuvem',
-        description: 'Solução de backup automatizado em nuvem com criptografia',
-        price: 200,
-        category: 'backup',
-        unit: 'TB/mês',
-        createdAt: new Date('2024-01-10'),
-      },
-      {
-        id: '4',
-        name: 'Migração para AWS',
-        description: 'Migração completa de infraestrutura para Amazon Web Services',
-        price: 2500,
-        category: 'nuvem',
-        unit: 'projeto',
-        createdAt: new Date('2024-01-10'),
-      },
-      {
-        id: '5',
-        name: 'Cabeamento Estruturado',
-        description: 'Instalação de rede estruturada com certificação',
-        price: 80,
-        category: 'cabeamento',
-        unit: 'ponto',
-        createdAt: new Date('2024-01-10'),
-      },
-    ];
-    localStorage.setItem(STORAGE_KEYS.SERVICES, JSON.stringify(mockServices));
-  }
-
-  const products = await getProducts();
-  if (products.length === 0) {
-    const mockProducts = [
-      {
-        id: '1',
-        name: 'Cabo de Rede Cat6 UTP',
-        description: 'Cabo de rede categoria 6 UTP 4 pares 24AWG',
-        price: 2.50,
-        category: 'cabos',
-        unit: 'metro',
-        brand: 'Furukawa',
-        model: 'Cat6 UTP',
-        stock: 1000,
-        createdAt: new Date('2024-01-10'),
-      },
-      {
-        id: '2',
-        name: 'Conector RJ45 Cat6',
-        description: 'Conector RJ45 categoria 6 para cabo UTP',
-        price: 0.80,
-        category: 'conectores',
-        unit: 'unidade',
-        brand: 'Panduit',
-        model: 'CJ688TGBU',
-        stock: 500,
-        createdAt: new Date('2024-01-10'),
-      },
-      {
-        id: '3',
-        name: 'Power Balun Passivo',
-        description: 'Balun passivo para transmissão de vídeo e energia via UTP',
-        price: 25.00,
-        category: 'equipamentos',
-        unit: 'par',
-        brand: 'Intelbras',
-        model: 'VB 1001 P',
-        stock: 50,
-        createdAt: new Date('2024-01-10'),
-      },
-      {
-        id: '4',
-        name: 'Patch Panel 24 Portas',
-        description: 'Patch panel 24 portas categoria 6 19 polegadas',
-        price: 120.00,
-        category: 'equipamentos',
-        unit: 'unidade',
-        brand: 'Furukawa',
-        model: 'PP24C6',
-        stock: 20,
-        createdAt: new Date('2024-01-10'),
-      },
-      {
-        id: '5',
-        name: 'Abraçadeira Plástica',
-        description: 'Abraçadeira plástica para fixação de cabos',
-        price: 0.15,
-        category: 'acessorios',
-        unit: 'unidade',
-        brand: 'Hellermann',
-        model: 'T50R',
-        stock: 2000,
-        createdAt: new Date('2024-01-10'),
-      },
-    ];
-    localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(mockProducts));
+export const generateProposalNumber = async (): Promise<string> => {
+  try {
+    const result = await query('SELECT COUNT(*) as count FROM proposals');
+    const count = parseInt(result.rows[0].count) + 1;
+    return `PROP-${new Date().getFullYear()}-${count.toString().padStart(4, '0')}`;
+  } catch (error) {
+    console.error('Erro ao gerar número da proposta:', error);
+    return `PROP-${new Date().getFullYear()}-${Date.now()}`;
   }
 };

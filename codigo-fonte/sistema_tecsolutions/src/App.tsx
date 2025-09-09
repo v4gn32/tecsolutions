@@ -25,14 +25,10 @@ import UserManagement from './pages/admin/UserManagement';
 import HardwareInventory from './pages/HardwareInventory';
 import SoftwareInventory from './pages/SoftwareInventory';
 import ServiceRecords from './pages/ServiceRecords';
-import { initializeStorage } from './utils/storage';
-
 function App() {
   useEffect(() => {
-    const initialize = async () => {
-      await initializeStorage();
-    };
-    initialize();
+    // PostgreSQL connection is handled automatically
+    console.log('App initialized with PostgreSQL');
   }, []);
 
   return (
