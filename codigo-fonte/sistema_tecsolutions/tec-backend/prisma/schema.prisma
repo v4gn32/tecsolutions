@@ -1,0 +1,244 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      String   @default("user") // admin, user
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relacionamentos
+  serviceRecords ServiceRecord[]
+
+  @@map("users")
+}
+
+model Client {
+  id           String   @id @default(uuid())
+  name         String
+  email        String
+  phone        String
+  company      String
+  cnpj         String?
+  street       String
+  number       String
+  complement   String?
+  neighborhood String
+  city         String
+  state        String
+  zipCode      String
+  type         String   // contrato, avulso
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relacionamentos
+  proposals          Proposal[]
+  hardwareInventory  HardwareInventory[]
+  softwareInventory  SoftwareInventory[]
+  serviceRecords     ServiceRecord[]
+  clientUsers        ClientUser[]
+
+  @@map("clients")
+}
+
+model Service {
+  id          String   @id @default(uuid())
+  name        String
+  description String
+  price       Float
+  category    String   // infraestrutura, helpdesk, nuvem, backup, cabeamento, outros
+  unit        String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relacionamentos
+  proposalItems ProposalItem[]
+
+  @@map("services")
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  name        String
+  description String
+  price       Float
+  category    String   // cabos, conectores, equipamentos, acessorios, outros
+  unit        String
+  brand       String?
+  model       String?
+  stock       Int?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relacionamentos
+  proposalProductItems ProposalProductItem[]
+
+  @@map("products")
+}
+
+model Proposal {
+  id          String   @id @default(uuid())
+  clientId    String
+  number      String   @unique
+  title       String
+  description String
+  subtotal    Float
+  discount    Float    @default(0)
+  total       Float
+  status      String   // rascunho, enviada, aprovada, recusada
+  validUntil  DateTime
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relacionamentos
+  client               Client                @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  items                ProposalItem[]
+  productItems         ProposalProductItem[]
+
+  @@map("proposals")
+}
+
+model ProposalItem {
+  id         String @id @default(uuid())
+  proposalId String
+  serviceId  String
+  quantity   Int
+  unitPrice  Float
+  total      Float
+
+  // Relacionamentos
+  proposal Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  service  Service  @relation(fields: [serviceId], references: [id])
+
+  @@map("proposal_items")
+}
+
+model ProposalProductItem {
+  id         String @id @default(uuid())
+  proposalId String
+  productId  String
+  quantity   Int
+  unitPrice  Float
+  total      Float
+
+  // Relacionamentos
+  proposal Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  product  Product  @relation(fields: [productId], references: [id])
+
+  @@map("proposal_product_items")
+}
+
+model HardwareInventory {
+  id              String   @id @default(uuid())
+  clientId        String
+  userId          String?  // ID do colaborador associado
+  brand           String
+  model           String
+  serialNumber    String
+  processor       String
+  memory          String
+  storage         String
+  operatingSystem String
+  deviceName      String
+  office          String
+  antivirus       String
+  username        String
+  password        String
+  pin             String
+  warranty        String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relacionamentos
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@map("hardware_inventory")
+}
+
+model SoftwareInventory {
+  id              String    @id @default(uuid())
+  clientId        String
+  login           String
+  password        String
+  softwareName    String
+  softwareType    String    // local, cloud, subscription, license, outros
+  expirationAlert DateTime
+  monthlyValue    Float?
+  annualValue     Float?
+  userControl     String    // ad_local, cloud, none
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relacionamentos
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@map("software_inventory")
+}
+
+model ServiceRecord {
+  id          String   @id @default(uuid())
+  clientId    String
+  type        String   // remote, onsite, laboratory, third_party
+  date        DateTime
+  description String
+  services    String[] // Array de serviços
+
+  // Campos para atendimento remoto/presencial
+  arrivalTime   String?
+  departureTime String?
+  lunchBreak    Boolean? @default(false)
+  totalHours    Float?
+
+  // Campos para laboratório
+  deviceReceived DateTime?
+  deviceReturned DateTime?
+  labServices    String[] // Array de serviços do laboratório
+
+  // Campos para terceiros
+  thirdPartyCompany String?
+  sentDate          DateTime?
+  returnedDate      DateTime?
+  cost              Float?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?
+
+  // Relacionamentos
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  user   User?  @relation(fields: [createdBy], references: [id])
+
+  @@map("service_records")
+}
+
+model ClientUser {
+  id         String   @id @default(uuid())
+  clientId   String
+  name       String
+  email      String
+  phone      String?
+  department String?
+  position   String?
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relacionamentos
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@map("client_users")
+}
