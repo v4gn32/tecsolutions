@@ -1,15 +1,15 @@
-# 📄 Especificação do Projeto — TecSolutions
+# Especificação do Projeto — TecSolutions
 
 ---
 
-## ✅ Definição do Problema
+## Definição do Problema
 
 Empresas prestadoras de serviços enfrentam dificuldades em gerenciar propostas comerciais, cronogramas de atendimento, clientes, serviços e produtos de forma centralizada e eficiente.  
 O uso de planilhas e controles manuais é pouco escalável, propenso a erros e dificulta a comunicação entre equipes.
 
 ---
 
-## 💡 Proposta de Solução
+## Proposta de Solução
 
 Desenvolver uma plataforma online chamada **TecSolutions**, que permita o gerenciamento unificado de propostas, cronogramas, clientes, serviços, produtos e relatórios.  
 O sistema visa otimizar a operação comercial e técnica, melhorar a comunicação interna e oferecer indicadores para a tomada de decisão.
@@ -18,7 +18,7 @@ O sistema visa otimizar a operação comercial e técnica, melhorar a comunicaç
 
 ---
 
-## 👥 Usuários
+## Usuários
 
 | Tipo de Usuário   | Descrição                                                   | Responsabilidades                                                                 |
 | ----------------- | ----------------------------------------------------------- | --------------------------------------------------------------------------------- |
@@ -27,7 +27,7 @@ O sistema visa otimizar a operação comercial e técnica, melhorar a comunicaç
 
 ---
 
-## 🛠️ Arquitetura e Tecnologias
+## Arquitetura e Tecnologias
 
 - **Frontend:** Vite + React + TypeScript + TailwindCSS 
 - **Backend:** Node.js + Express (MVC) + Prisma ORM
@@ -43,9 +43,9 @@ O sistema visa otimizar a operação comercial e técnica, melhorar a comunicaç
 
 ---
 
-# 💰 Estrutura de Custos — Projeto TecSolutions
+# Estrutura de Custos — Projeto TecSolutions
 
-## 📦 Custo do Projeto (Entrega única)
+## Custo do Projeto (Entrega única)
 
 | Item                          | Descrição                                        | Valor Estimado    |
 | ----------------------------- | ------------------------------------------------ | ----------------- |
@@ -60,7 +60,7 @@ O sistema visa otimizar a operação comercial e técnica, melhorar a comunicaç
 
 ---
 
-## 🔄 Mensalidade Pós-Entrega (manutenção + suporte)
+## Mensalidade Pós-Entrega (manutenção + suporte)
 
 | Descrição                                  | Valor Original | Desconto Aplicado | Valor com Desconto |
 | ------------------------------------------ | -------------- | ----------------- | ------------------ |
@@ -68,13 +68,13 @@ O sistema visa otimizar a operação comercial e técnica, melhorar a comunicaç
 
 ---
 
-**📌 Observação:**  
+**Observação:**  
 Os valores cobrem todo o desenvolvimento, setup de infraestrutura, deploy, domínio, armazenamento e configurações iniciais.  
 A mensalidade cobre atualizações, monitoramento, suporte técnico e pequenas melhorias contínuas no sistema.
 
 ---
 
-## 🧩 Funcionalidades Principais
+## Funcionalidades Principais
 
 ![Diagrama de Funcionalidades](https://raw.githubusercontent.com/v4gn32/tecsolutions/main/documentos/img/Diagrama_de_Funcionalidades.png)
 
@@ -117,7 +117,7 @@ A mensalidade cobre atualizações, monitoramento, suporte técnico e pequenas m
 
 ---
 
-## 🎯 Casos de Uso — Sistema TecSolutions
+## Casos de Uso — Sistema TecSolutions
 
 ![Diagrama Casos de Uso](https://raw.githubusercontent.com/v4gn32/tecsolutions/main/documentos/img/Diagrama_Casos_de_Uso.png)
 
@@ -132,7 +132,7 @@ A mensalidade cobre atualizações, monitoramento, suporte técnico e pequenas m
 
 ---
 
-## 🔒 Segurança
+## Segurança
 
 - Autenticação por e-mail e senha forte  
 - Tokens expirados após período de inatividade  
@@ -141,7 +141,7 @@ A mensalidade cobre atualizações, monitoramento, suporte técnico e pequenas m
 
 ---
 
-## 💼 Modelo de Negócio
+## Modelo de Negócio
 
 - Licença de uso via assinatura mensal (SaaS)  
 - Implantação e treinamento inclusos no valor inicial  
@@ -149,7 +149,7 @@ A mensalidade cobre atualizações, monitoramento, suporte técnico e pequenas m
 
 ---
 
-## 🧱 Estrutura de Banco de Dados (PostgreSQL)
+## Estrutura de Banco de Dados (PostgreSQL)
 
 - **users:** nome, email, senha criptografada, role, data de criação  
 - **proposals:** cliente, valor total, serviços, status, data de criação  
@@ -161,7 +161,7 @@ A mensalidade cobre atualizações, monitoramento, suporte técnico e pequenas m
 
 ---
 
-## 📆 Cronograma por Etapas (Sprints)
+## Cronograma por Etapas (Sprints)
 
 | Etapa                                | Duração Estimada | Descrição                                       |
 | ------------------------------------ | ---------------- | ----------------------------------------------- |

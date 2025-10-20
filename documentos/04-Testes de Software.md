@@ -1,4 +1,4 @@
-# 🧪 Plano de Testes de Software — TecSolutions
+# Plano de Testes de Software — TecSolutions
 
 ## CT-001 - Cadastro de Usuários
 
@@ -98,7 +98,7 @@
 
 ---
 
-# 🧾 Evidências de Testes
+# Evidências de Testes
 
 ## Parte 1 - Testes Unitários
 

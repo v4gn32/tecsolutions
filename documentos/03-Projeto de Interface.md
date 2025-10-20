@@ -1,12 +1,12 @@
 # Projeto de Interface - TecSolutions
 
-## 📘 Visão Geral
+## Visão Geral
 
 Documentação das telas e fluxos de interface do sistema **TecSolutions**, uma plataforma para gerenciamento de propostas comerciais, cronogramas de atendimento, clientes, serviços, produtos e relatórios.
 
 ---
 
-## 🖥️ Telas do Site e Sistema
+## Telas do Site e Sistema
 
 ### 1. Tela Home (Site Institucional)
 
@@ -342,7 +342,7 @@ Documentação das telas e fluxos de interface do sistema **TecSolutions**, uma 
 
 ---
 
-## 🔁 Fluxo de Navegação
+## Fluxo de Navegação
 
 ```mermaid
 graph TD

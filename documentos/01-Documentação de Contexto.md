@@ -1,15 +1,15 @@
-# 📚 Contexto do Projeto — TecSolutions
+# Contexto do Projeto — TecSolutions
 
-## ✨ Introdução
+## Introdução
 
 A **TecSolutions** é uma plataforma completa que integra o site institucional da empresa a um sistema interno para **gestão de propostas comerciais, cronogramas de atendimento, clientes, serviços e produtos**.  
 Seu objetivo é otimizar o fluxo comercial e operacional, centralizando as informações e garantindo mais agilidade, segurança e organização.
 
-> 🔍 **Desafio:** Muitas empresas ainda utilizam planilhas e controles manuais para gerenciar propostas e agendamentos, o que gera retrabalho, erros de comunicação e dificuldade no acompanhamento das demandas.
+> **Desafio:** Muitas empresas ainda utilizam planilhas e controles manuais para gerenciar propostas e agendamentos, o que gera retrabalho, erros de comunicação e dificuldade no acompanhamento das demandas.
 
 ---
 
-## ❗ Problema Identificado
+## Problema Identificado
 
 O processo manual de controle comercial e operacional apresenta diversos problemas:
 
@@ -22,13 +22,13 @@ O processo manual de controle comercial e operacional apresenta diversos problem
 
 ---
 
-## 🎯 Objetivos
+## Objetivos
 
-### 🎯 Objetivo Geral
+### Objetivo Geral
 
 Desenvolver uma **plataforma web moderna e segura** para unificar o gerenciamento comercial e operacional da TecSolutions, com funcionalidades que permitam acompanhar propostas, cronogramas, clientes e relatórios em um único lugar.
 
-### ✅ Objetivos Específicos
+### Objetivos Específicos
 
 - **Facilitar a gestão comercial:**  
   Criar, editar e acompanhar propostas de forma rápida, com cálculos automáticos e status.
@@ -47,7 +47,7 @@ Desenvolver uma **plataforma web moderna e segura** para unificar o gerenciament
 
 ---
 
-## 💡 Justificativa
+## Justificativa
 
 A adoção da plataforma TecSolutions se justifica porque:
 
@@ -61,7 +61,7 @@ A adoção da plataforma TecSolutions se justifica porque:
 
 ---
 
-## 👨‍💼 Público-Alvo
+## Público-Alvo
 
 - Empresas de prestação de serviços técnicos e comerciais;
 - Equipes de vendas e atendimento;
@@ -69,7 +69,7 @@ A adoção da plataforma TecSolutions se justifica porque:
 
 ---
 
-## 🧑‍💻 Tecnologias Utilizadas
+## Tecnologias Utilizadas
 
 | Categoria      | Tecnologias                              |
 | -------------- | ---------------------------------------- |
@@ -84,13 +84,13 @@ A adoção da plataforma TecSolutions se justifica porque:
 
 ---
 
-## 👥 Desenvolvimento
+## Desenvolvimento
 
 Projeto desenvolvido por **Vagner de Oliveira Florêncio**.
 
 ---
 
-## 🤲 Como Contribuir
+## Como Contribuir
 
 Quer colaborar com o projeto TecSolutions? Veja como:
 
@@ -102,6 +102,6 @@ Quer colaborar com o projeto TecSolutions? Veja como:
 
 ---
 
-## 📄 Licença
+## Licença
 
 Este projeto está sob a licença [MIT](LICENSE).
