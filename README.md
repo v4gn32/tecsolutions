@@ -1,8 +1,8 @@
-# 📄 TecSolutions – Sistema
+# TecSolutions – Sistema
 
 O **TecSolutions** é um sistema web completo que une o site institucional da empresa a um sistema interno para gestão de propostas comerciais, cronograma de atendimentos e clientes. Ele foi desenvolvido para otimizar o fluxo comercial e operacional, garantindo organização e eficiência.
 
-## 🚀 Funcionalidades
+## Funcionalidades
 
 - **Site Institucional** com páginas de Início, Sobre, Serviços e Contato
 - **Acesso ao Sistema** com login seguro
@@ -15,25 +15,25 @@ O **TecSolutions** é um sistema web completo que une o site institucional da em
 - Integração com importação de planilhas Excel
 - Layout moderno e responsivo
 
-## 🛠️ Tecnologias Utilizadas
+## Tecnologias Utilizadas
 
 - **Frontend**: React + TailwindCSS
 - **Backend**: Node.js + Express
 - **Banco de Dados**: PostgreSQL
 - **Deploy**: Render
 
-## 👤 Perfis de Acesso
+## Perfis de Acesso
 
 - **Administrador** – acesso total ao sistema, gerenciamento de usuários e configurações
 - **Usuário Comum** – acesso restrito às funções atribuídas pelo administrador
 
-## 📂 Estrutura do Projeto
+## Estrutura do Projeto
 
 - `/frontend` → Interface do sistema e site institucional
 - `/backend` → API e regras de negócio
 - `/docs` → Documentação técnica e de requisitos
 
-## 📌 Como rodar o projeto localmente
+## Como rodar o projeto localmente
 
 1. **Clone o repositório**:
 
@@ -69,7 +69,7 @@ O **TecSolutions** é um sistema web completo que une o site institucional da em
 <li><a href="documentos/05-Implantação.md"> Implantação</a></li>
 </ol>
 
-## 📧 Contato
+## Contato
 
 **Vagner de Oliveira Florencio**
 
