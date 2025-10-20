@@ -1,12 +1,36 @@
-// server.js
-// Ponto de entrada da aplicação - carrega variáveis e inicia o servidor
-import dotenv from "dotenv";
-dotenv.config();
+const app = require('./src/app');
+const { PrismaClient } = require('@prisma/client');
 
-import app from "./src/app.js";
+const prisma = new PrismaClient();
+const PORT = process.env.PORT || 3001;
 
-const PORT = process.env.PORT || 3000;
+async function startServer() {
+  try {
+    // Teste de conexão com o banco
+    await prisma.$connect();
+    console.log('✅ Conectado ao banco de dados PostgreSQL');
 
-app.listen(PORT, () => {
-  console.log(`TecSolutions API rodando em http://localhost:${PORT}`);
+    app.listen(PORT, () => {
+      console.log(`🚀 Servidor rodando na porta ${PORT}`);
+      console.log(`📍 API disponível em: http://localhost:${PORT}`);
+    });
+  } catch (error) {
+    console.error('❌ Erro ao iniciar o servidor:', error);
+    process.exit(1);
+  }
+}
+
+// Graceful shutdown
+process.on('SIGINT', async () => {
+  console.log('\n🔄 Encerrando servidor...');
+  await prisma.$disconnect();
+  process.exit(0);
 });
+
+process.on('SIGTERM', async () => {
+  console.log('\n🔄 Encerrando servidor...');
+  await prisma.$disconnect();
+  process.exit(0);
+});
+
+startServer();

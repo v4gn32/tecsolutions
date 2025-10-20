@@ -1,86 +1,179 @@
-// Define todas as rotas do site e do sistema
-import { Routes, Route, Navigate } from "react-router-dom";
-import Layout from "./components/Layout";
-import { AuthProvider } from "./contexts/AuthContext";
-import ProtectedRoute from "./components/ProtectedRoute";
+import React, { useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { AuthProvider } from './contexts/AuthContext';
+import ProtectedRoute from './components/ProtectedRoute';
 
-// Páginas institucionais
-import Home from "./pages/institutional/Home";
-import About from "./pages/institutional/About";
-import Services from "./pages/institutional/Services";
-import Contact from "./pages/institutional/Contact";
+// Institutional Components
+import Header from './components/institutional/Header';
+import Footer from './components/institutional/Footer';
+import Home from './pages/institutional/Home';
+import About from './pages/institutional/About';
+import InstitutionalServices from './pages/institutional/Services';
+import Contact from './pages/institutional/Contact';
+import Login from './pages/Login';
 
-// Sistema
-import Login from "./pages/Login";
-import Dashboard from "./pages/Dashboard";
-import Proposals from "./pages/Proposals";
-import NewProposal from "./pages/NewProposal";
-import Clients from "./pages/Clients";
-import Products from "./pages/Products";
-import ServicesPage from "./pages/Services";
-import Reports from "./pages/Reports";
-import Users from "./pages/Users";
-import Hardware from "./pages/inventory/Hardware";
-import HardwareForm from "./pages/inventory/HardwareForm";
-import Software from "./pages/inventory/Software";
-import SoftwareForm from "./pages/inventory/SoftwareForm";
-import Attendance from "./pages/tickets/Attendance";
-import Remote from "./pages/tickets/Remote";
-import Onsite from "./pages/tickets/Onsite";
-import Lab from "./pages/tickets/Lab";
-import ThirdParty from "./pages/tickets/ThirdParty";
+// System Components
+import Layout from './components/Layout';
+import Dashboard from './pages/Dashboard';
+import Proposals from './pages/Proposals';
+import NewProposal from './pages/NewProposal';
+import Clients from './pages/Clients';
+import Services from './pages/Services';
+import Products from './pages/Products';
+import Reports from './pages/Reports';
+import UserManagement from './pages/admin/UserManagement';
+import HardwareInventory from './pages/HardwareInventory';
+import SoftwareInventory from './pages/SoftwareInventory';
+import ServiceRecordsPage from './pages/ServiceRecords';
+import ClientUsersPage from './pages/ClientUsers';
+import Schedule from './pages/Schedule';
+import { initializeStorage } from './utils/storage';
 
-export default function App() {
+function App() {
+  useEffect(() => {
+    const initialize = async () => {
+      await initializeStorage();
+    };
+    initialize();
+  }, []);
+
   return (
-    // Provider de autenticação
     <AuthProvider>
-      <Routes>
-        {/* SITE */}
-        <Route element={<Layout />}>
-          <Route path="/" element={<Home />} />
-          <Route path="/sobre" element={<About />} />
-          <Route path="/servicos" element={<Services />} />
-          <Route path="/contato" element={<Contact />} />
-        </Route>
-
-        {/* LOGIN fora do layout principal (sem header institucional) */}
-        <Route path="/login" element={<Login />} />
-
-        {/* SISTEMA protegido */}
-        <Route
-          path="/app"
-          element={
+      <Router>
+        <Routes>
+          {/* Institutional Routes */}
+          <Route path="/" element={
+            <div>
+              <Header />
+              <Home />
+              <Footer />
+            </div>
+          } />
+          <Route path="/sobre" element={
+            <div>
+              <Header />
+              <About />
+              <Footer />
+            </div>
+          } />
+          <Route path="/servicos" element={
+            <div>
+              <Header />
+              <InstitutionalServices />
+              <Footer />
+            </div>
+          } />
+          <Route path="/contato" element={
+            <div>
+              <Header />
+              <Contact />
+              <Footer />
+            </div>
+          } />
+          
+          {/* Login */}
+          <Route path="/login" element={<Login />} />
+          
+          {/* Protected System Routes */}
+          <Route path="/dashboard" element={
             <ProtectedRoute>
-              <Layout isSystem />
+              <Layout>
+                <Dashboard />
+              </Layout>
             </ProtectedRoute>
-          }
-        >
-          <Route index element={<Dashboard />} />
-          <Route path="propostas" element={<Proposals />} />
-          <Route path="propostas/nova" element={<NewProposal />} />
-          <Route path="clientes" element={<Clients />} />
-          <Route path="produtos" element={<Products />} />
-          <Route path="servicos" element={<ServicesPage />} />
-          <Route path="relatorios" element={<Reports />} />
-          <Route path="usuarios" element={<Users />} />
-
-          {/* Inventário */}
-          <Route path="inventario/hardware" element={<Hardware />} />
-          <Route path="inventario/hardware/novo" element={<HardwareForm />} />
-          <Route path="inventario/software" element={<Software />} />
-          <Route path="inventario/software/novo" element={<SoftwareForm />} />
-
-          {/* Atendimentos */}
-          <Route path="atendimentos" element={<Attendance />} />
-          <Route path="atendimentos/remoto" element={<Remote />} />
-          <Route path="atendimentos/presencial" element={<Onsite />} />
-          <Route path="atendimentos/lab" element={<Lab />} />
-          <Route path="atendimentos/terceiros" element={<ThirdParty />} />
-        </Route>
-
-        {/* Fallback */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+          } />
+          <Route path="/proposals" element={
+            <ProtectedRoute>
+              <Layout>
+                <Proposals />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/proposals/new" element={
+            <ProtectedRoute>
+              <Layout>
+                <NewProposal />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/clients" element={
+            <ProtectedRoute>
+              <Layout>
+                <Clients />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/services" element={
+            <ProtectedRoute>
+              <Layout>
+                <Services />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/products" element={
+            <ProtectedRoute>
+              <Layout>
+                <Products />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/reports" element={
+            <ProtectedRoute>
+              <Layout>
+                <Reports />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          
+          {/* Admin Routes */}
+          <Route path="/admin/users" element={
+            <ProtectedRoute adminOnly>
+              <Layout>
+                <UserManagement />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          
+          {/* Inventory Routes */}
+          <Route path="/clients/:clientId/hardware" element={
+            <ProtectedRoute>
+              <Layout>
+                <HardwareInventory />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/clients/:clientId/software" element={
+            <ProtectedRoute>
+              <Layout>
+                <SoftwareInventory />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/clients/:clientId/service-records" element={
+            <ProtectedRoute>
+              <Layout>
+                <ServiceRecordsPage />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/clients/:clientId/users" element={
+            <ProtectedRoute>
+              <Layout>
+                <ClientUsersPage />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/schedule" element={
+            <ProtectedRoute>
+              <Layout>
+                <Schedule />
+              </Layout>
+            </ProtectedRoute>
+          } />
+        </Routes>
+      </Router>
     </AuthProvider>
   );
 }
+
+export default App;

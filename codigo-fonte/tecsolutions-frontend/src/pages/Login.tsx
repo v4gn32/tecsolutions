@@ -1,67 +1,137 @@
-// Tela de login com email/CPF + senha, chamando AuthContext.login
-import { FormEvent, useState } from "react";
-import { useAuth } from "../contexts/AuthContext";
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { LogIn, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
-export default function Login() {
+const Login: React.FC = () => {
+  const [formData, setFormData] = useState({
+    email: '',
+    password: ''
+  });
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  
   const { login } = useAuth();
-  const [identifier, setIdentifier] = useState("");
-  const [password, setPassword] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
+  const navigate = useNavigate();
 
-  async function onSubmit(e: FormEvent) {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setErr(null);
-    setSubmitting(true);
+    setError('');
+    setIsLoading(true);
+
     try {
-      await login(identifier, password);
-      window.location.href = "/app";
-    } catch (error: any) {
-      setErr(error?.response?.data?.message ?? "Credenciais inválidas");
+      const success = await login(formData);
+      if (success) {
+        navigate('/dashboard');
+      } else {
+        setError('Email ou senha incorretos');
+      }
+    } catch (err) {
+      setError('Erro ao fazer login. Tente novamente.');
     } finally {
-      setSubmitting(false);
+      setIsLoading(false);
     }
-  }
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
+  };
 
   return (
-    <div className="min-h-dvh grid place-items-center">
-      <div className="w-full max-w-sm rounded-xl border p-6">
-        <div className="mb-4 text-center">
-          <img src="/logo.png" className="mx-auto h-10 w-10" />
-          <h1 className="mt-2 text-xl font-bold">Acessar o Sistema</h1>
-          <p className="text-sm text-slate-600">Entre com seu e-mail/CPF e senha</p>
+    <div className="min-h-screen bg-gradient-to-br from-tecsolutions-primary via-blue-800 to-tecsolutions-primary flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-8">
+        {/* Header */}
+        <div className="text-center">
+          <Link to="/" className="inline-block">
+            <h1 className="text-4xl font-bold text-white mb-2">TecSolutions</h1>
+          </Link>
+          <p className="text-gray-200">Sistema de Propostas Comerciais</p>
         </div>
 
-        <form onSubmit={onSubmit} className="grid gap-3">
-          <input
-            className="rounded-md border p-2"
-            placeholder="E-mail ou CPF"
-            value={identifier}
-            onChange={(e) => setIdentifier(e.target.value)}
-          />
-          <input
-            className="rounded-md border p-2"
-            type="password"
-            placeholder="Senha"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-          {err && <div className="text-sm text-red-600">{err}</div>}
-          <button
-            disabled={submitting}
-            className="rounded-md bg-primary px-4 py-2 font-medium text-slate-900 hover:opacity-90 disabled:opacity-60"
+        {/* Login Form */}
+        <div className="bg-white rounded-2xl shadow-2xl p-8">
+          <div className="text-center mb-8">
+            <div className="bg-tecsolutions-primary rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+              <LogIn className="w-8 h-8 text-tecsolutions-accent" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900">Acesso ao Sistema</h2>
+            <p className="text-gray-600 mt-2">Entre com suas credenciais</p>
+          </div>
+
+          {error && (
+            <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 flex items-center">
+              <AlertCircle className="w-5 h-5 text-red-500 mr-3" />
+              <span className="text-red-700 text-sm">{error}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                E-mail
+              </label>
+              <input
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-tecsolutions-accent focus:border-transparent"
+                placeholder="seu@email.com"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Senha
+              </label>
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  name="password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-tecsolutions-accent focus:border-transparent"
+                  placeholder="••••••••"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full bg-tecsolutions-primary text-white py-3 px-4 rounded-lg font-semibold hover:bg-opacity-90 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isLoading ? 'Entrando...' : 'Entrar'}
+            </button>
+          </form>
+
+        </div>
+
+        {/* Back to Site */}
+        <div className="text-center">
+          <Link
+            to="/"
+            className="text-tecsolutions-accent hover:text-white transition-colors duration-200"
           >
-            {submitting ? "Entrando..." : "Entrar"}
-          </button>
-          <button
-            type="button"
-            className="text-left text-sm text-slate-600 hover:underline"
-            onClick={() => alert("Fluxo de 'Esqueci minha senha' será integrado depois.")}
-          >
-            Esqueci minha senha
-          </button>
-        </form>
+            ← Voltar ao site institucional
+          </Link>
+        </div>
       </div>
     </div>
   );
-}
+};
+
+export default Login;

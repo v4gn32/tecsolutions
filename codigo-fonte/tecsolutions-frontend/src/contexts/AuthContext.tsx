@@ -1,64 +1,66 @@
-// Contexto de autenticação com login/logout e getProfile
-import { createContext, useContext, useEffect, useState } from "react";
-import { api } from "../utils/api";
-import { setToken, clearToken, getToken } from "../utils/storage";
-import type { User, AuthResponse } from "../types/auth";
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { User, AuthState, LoginCredentials } from '../types/auth';
+import { login as authLogin, logout as authLogout, getCurrentUser, initializeAuth } from '../utils/auth';
 
-type AuthContextType = {
-  user: User | null;
-  loading: boolean;
-  login: (emailOrCpf: string, password: string) => Promise<void>;
+interface AuthContextType extends AuthState {
+  login: (credentials: LoginCredentials) => Promise<boolean>;
   logout: () => void;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
 };
 
-const AuthContext = createContext<AuthContextType>({} as any);
+interface AuthProviderProps {
+  children: ReactNode;
+}
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+  const [authState, setAuthState] = useState<AuthState>({
+    user: null,
+    isAuthenticated: false
+  });
 
-  // Carrega perfil se tiver token
   useEffect(() => {
-    const token = getToken();
-    if (!token) {
-      setLoading(false);
-      return;
+    initializeAuth();
+    const user = getCurrentUser();
+    if (user) {
+      setAuthState({
+        user,
+        isAuthenticated: true
+      });
     }
-    (async () => {
-      try {
-        const { data } = await api.get<User>("/auth/profile");
-        setUser(data);
-      } catch {
-        clearToken();
-        setUser(null);
-      } finally {
-        setLoading(false);
-      }
-    })();
   }, []);
 
-  async function login(emailOrCpf: string, password: string) {
-    // Chama backend: POST /auth/login  → { token, user }
-    const { data } = await api.post<AuthResponse>("/auth/login", {
-      identifier: emailOrCpf,
-      password,
-    });
-    setToken(data.token);
-    setUser(data.user);
-  }
+  const login = async (credentials: LoginCredentials): Promise<boolean> => {
+    const user = authLogin(credentials);
+    if (user) {
+      setAuthState({
+        user,
+        isAuthenticated: true
+      });
+      return true;
+    }
+    return false;
+  };
 
-  function logout() {
-    clearToken();
-    setUser(null);
-    // Redirecionamento simples:
-    window.location.href = "/login";
-  }
+  const logout = () => {
+    authLogout();
+    setAuthState({
+      user: null,
+      isAuthenticated: false
+    });
+  };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ ...authState, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
-}
-
-export const useAuth = () => useContext(AuthContext);
+};

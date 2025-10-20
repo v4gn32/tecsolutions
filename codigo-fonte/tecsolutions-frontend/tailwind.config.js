@@ -1,12 +1,15 @@
 /** @type {import('tailwindcss').Config} */
-// v4: arquivo opcional, mas útil para indicar onde escanear classes
 export default {
-  content: [
-    "./index.html",                 // <- Vite HTML
-    "./src/**/*.{js,ts,jsx,tsx}"    // <- Seus componentes/páginas
-  ],
+  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
-    extend: {}, // <- personalize cores/ fontes aqui depois
+    extend: {
+      colors: {
+        'tecsolutions': {
+          'primary': '#0D1F42',
+          'accent': '#00E6E6',
+        }
+      }
+    },
   },
-  plugins: [], // <- ex.: forms, typography, etc.
+  plugins: [],
 };
