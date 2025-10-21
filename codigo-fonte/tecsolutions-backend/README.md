@@ -48,20 +48,57 @@ tec-backend/
 └── README.md              # Este arquivo
 ```
 
-## 🛠️ Instalação
+## 🚀 Instalação e Configuração
+
+### Pré-requisitos
+- Node.js (versão 18 ou superior)
+- PostgreSQL (versão 12 ou superior)
+- npm ou yarn
+
+### Configuração Rápida (Recomendada)
 
 1. **Clone o repositório**
 ```bash
 git clone <url-do-repositorio>
-cd tec-backend
+cd tecsolutions-backend
 ```
 
-2. **Instale as dependências**
+2. **Configure o banco PostgreSQL**
+   - Crie um banco de dados chamado `tecsolutions_db`
+   - Anote as credenciais de acesso
+
+3. **Configure as variáveis de ambiente**
+```bash
+cp .env.example .env
+```
+
+Edite o arquivo `.env` com suas configurações de banco:
+```env
+DATABASE_URL="postgresql://seu_usuario:sua_senha@localhost:5432/tecsolutions_db?schema=public"
+JWT_SECRET="sua-chave-jwt-super-secreta-aqui"
+```
+
+4. **Execute a configuração automática**
+```bash
+npm run setup
+```
+
+Este comando irá:
+- Instalar todas as dependências
+- Gerar o cliente Prisma
+- Executar as migrações do banco
+- Popular o banco com dados iniciais
+
+### Configuração Manual (Alternativa)
+
+Se preferir fazer passo a passo:
+
+1. **Instale as dependências**
 ```bash
 npm install
 ```
 
-3. **Configure as variáveis de ambiente**
+2. **Configure as variáveis de ambiente**
 ```bash
 cp .env.example .env
 ```
