@@ -1,8 +1,8 @@
-const express = require('express');
-const bcrypt = require('bcryptjs');
-const { body, validationResult, param } = require('express-validator');
-const { PrismaClient } = require('@prisma/client');
-const { authenticateToken, requireAdmin } = require('../middleware/auth');
+import express from 'express';
+import bcrypt from 'bcryptjs';
+import { body, validationResult, param } from 'express-validator';
+import { PrismaClient } from '@prisma/client';
+import { authenticateToken, requireAdmin } from '../middleware/auth.js';
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -449,4 +449,4 @@ router.delete('/clients/:id', idValidation, async (req, res, next) => {
   }
 });
 
-module.exports = router;
+export default router;

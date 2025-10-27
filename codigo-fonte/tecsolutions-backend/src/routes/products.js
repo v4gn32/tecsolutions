@@ -1,7 +1,7 @@
-const express = require('express');
-const { body, validationResult, param } = require('express-validator');
-const { PrismaClient } = require('@prisma/client');
-const { authenticateToken } = require('../middleware/auth');
+import express from 'express';
+import { body, validationResult, param } from 'express-validator';
+import { PrismaClient } from '@prisma/client';
+import { authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -242,4 +242,4 @@ router.get('/categories', async (req, res, next) => {
   }
 });
 
-module.exports = router;
+export default router;

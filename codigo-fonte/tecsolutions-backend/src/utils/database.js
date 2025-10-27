@@ -1,4 +1,5 @@
-const { PrismaClient } = require('@prisma/client');
+import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 
 // Configuração do Prisma Client
 const prisma = new PrismaClient({
@@ -110,8 +111,6 @@ async function clearTestData() {
 // Função para seed inicial (criar usuário admin padrão)
 async function seedInitialData() {
   try {
-    const bcrypt = require('bcryptjs');
-    
     // Verificar se já existe um usuário admin
     const existingAdmin = await prisma.user.findFirst({
       where: { role: 'admin' }
@@ -173,7 +172,7 @@ process.on('SIGTERM', async () => {
   process.exit(0);
 });
 
-module.exports = {
+export {
   prisma,
   connectDatabase,
   disconnectDatabase,

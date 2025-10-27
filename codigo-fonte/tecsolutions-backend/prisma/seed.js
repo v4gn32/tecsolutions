@@ -1,5 +1,5 @@
-const { PrismaClient } = require('@prisma/client');
-const bcrypt = require('bcryptjs');
+import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
@@ -7,13 +7,16 @@ async function main() {
   console.log('🌱 Iniciando seed do banco de dados...');
 
   // Criar usuário administrador padrão
-  const hashedPassword = await bcrypt.hash('admin123', 10);
+  const hashedPassword = await bcrypt.hash('Mudar2025', 10);
   
   const adminUser = await prisma.user.upsert({
-    where: { email: 'admin@tecsolutions.com' },
-    update: {},
+    where: { email: 'admin@tecsolutions.com.br' },
+    update: {
+      password: hashedPassword,
+      email: 'admin@tecsolutions.com.br'
+    },
     create: {
-      email: 'admin@tecsolutions.com',
+      email: 'admin@tecsolutions.com.br',
       password: hashedPassword,
       name: 'Administrador',
       role: 'admin',
@@ -64,7 +67,7 @@ async function main() {
 
   for (const service of services) {
     await prisma.service.upsert({
-      where: { name: service.name },
+      where: { id: service.id || 'non-existent-id' },
       update: {},
       create: service
     });
@@ -118,7 +121,7 @@ async function main() {
 
   for (const product of products) {
     await prisma.product.upsert({
-      where: { name: product.name },
+      where: { id: product.id || 'non-existent-id' },
       update: {},
       create: product
     });
@@ -128,7 +131,7 @@ async function main() {
 
   // Criar cliente de exemplo
   const exampleClient = await prisma.client.upsert({
-    where: { email: 'contato@empresaexemplo.com' },
+    where: { id: 'non-existent-client-id' },
     update: {},
     create: {
       name: 'João Silva',

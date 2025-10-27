@@ -1,4 +1,4 @@
-const { body, param, query } = require('express-validator');
+import { body, param, query } from 'express-validator';
 
 // Validações comuns
 const commonValidations = {
@@ -306,7 +306,7 @@ const normalizeCEP = (cep) => {
   return cep;
 };
 
-module.exports = {
+export {
   commonValidations,
   paginationValidations,
   dateRangeValidations,

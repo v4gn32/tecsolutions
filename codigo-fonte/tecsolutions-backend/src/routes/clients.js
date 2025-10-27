@@ -1,7 +1,7 @@
-const express = require('express');
-const { body, validationResult, param } = require('express-validator');
-const { PrismaClient } = require('@prisma/client');
-const { authenticateToken } = require('../middleware/auth');
+import express from 'express';
+import { body, validationResult, param } from 'express-validator';
+import { PrismaClient } from '@prisma/client';
+import { authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -15,6 +15,7 @@ const clientValidation = [
   body('email').isEmail().withMessage('Email inválido'),
   body('phone').notEmpty().withMessage('Telefone é obrigatório'),
   body('company').notEmpty().withMessage('Empresa é obrigatória'),
+  body('cnpj').optional().isLength({ min: 14, max: 18 }).withMessage('CNPJ inválido'),
   body('street').notEmpty().withMessage('Rua é obrigatória'),
   body('number').notEmpty().withMessage('Número é obrigatório'),
   body('neighborhood').notEmpty().withMessage('Bairro é obrigatório'),
@@ -53,7 +54,7 @@ router.get('/', async (req, res, next) => {
         where,
         skip,
         take: parseInt(limit),
-        orderBy: { createdAt: 'desc' }
+        orderBy: { name: 'asc' }
       }),
       prisma.client.count({ where })
     ]);
@@ -86,26 +87,11 @@ router.get('/:id', idValidation, async (req, res, next) => {
     const client = await prisma.client.findUnique({
       where: { id: req.params.id },
       include: {
-        proposals: {
-          orderBy: { createdAt: 'desc' },
-          take: 5
-        },
-        hardwareInventory: {
-          orderBy: { createdAt: 'desc' },
-          take: 5
-        },
-        softwareInventory: {
-          orderBy: { createdAt: 'desc' },
-          take: 5
-        },
-        serviceRecords: {
-          orderBy: { createdAt: 'desc' },
-          take: 5
-        },
-        clientUsers: {
-          where: { isActive: true },
-          orderBy: { name: 'asc' }
-        }
+        proposals: true,
+        hardwareInventory: true,
+        softwareInventory: true,
+        serviceRecords: true,
+        clientUsers: true
       }
     });
 
@@ -115,7 +101,7 @@ router.get('/:id', idValidation, async (req, res, next) => {
       });
     }
 
-    res.json({ client });
+    res.json(client);
   } catch (error) {
     next(error);
   }
@@ -136,10 +122,7 @@ router.post('/', clientValidation, async (req, res, next) => {
       data: req.body
     });
 
-    res.status(201).json({
-      message: 'Cliente criado com sucesso',
-      client
-    });
+    res.status(201).json(client);
   } catch (error) {
     next(error);
   }
@@ -161,10 +144,7 @@ router.put('/:id', [...idValidation, ...clientValidation], async (req, res, next
       data: req.body
     });
 
-    res.json({
-      message: 'Cliente atualizado com sucesso',
-      client
-    });
+    res.json(client);
   } catch (error) {
     next(error);
   }
@@ -185,12 +165,10 @@ router.delete('/:id', idValidation, async (req, res, next) => {
       where: { id: req.params.id }
     });
 
-    res.json({
-      message: 'Cliente excluído com sucesso'
-    });
+    res.status(204).send();
   } catch (error) {
     next(error);
   }
 });
 
-module.exports = router;
+export default router;

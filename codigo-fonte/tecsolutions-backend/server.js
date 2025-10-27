@@ -1,5 +1,5 @@
-const app = require('./src/app');
-const { PrismaClient } = require('@prisma/client');
+import app from './src/app.js';
+import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 3000;
@@ -20,7 +20,10 @@ async function startServer() {
   }
 }
 
-// Graceful shutdown
+// Iniciar o servidor
+startServer();
+
+// Desligamento elegante
 process.on('SIGINT', async () => {
   console.log('\n🔄 Encerrando servidor...');
   await prisma.$disconnect();
@@ -33,4 +36,4 @@ process.on('SIGTERM', async () => {
   process.exit(0);
 });
 
-startServer();
+export default startServer;

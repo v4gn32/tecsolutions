@@ -1,9 +1,9 @@
-const express = require('express');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const { body, validationResult } = require('express-validator');
-const { PrismaClient } = require('@prisma/client');
-const { authenticateToken } = require('../middleware/auth');
+import express from 'express';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import { body, validationResult } from 'express-validator';
+import { PrismaClient } from '@prisma/client';
+import { authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -169,4 +169,4 @@ router.post('/refresh', authenticateToken, async (req, res, next) => {
   }
 });
 
-module.exports = router;
+export default router;

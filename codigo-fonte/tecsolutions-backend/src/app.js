@@ -1,24 +1,22 @@
-const express = require('express');
-const cors = require('cors');
-const helmet = require('helmet');
-const morgan = require('morgan');
-const compression = require('compression');
-const rateLimit = require('express-rate-limit');
-require('dotenv').config();
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import morgan from 'morgan';
+import compression from 'compression';
+import rateLimit from 'express-rate-limit';
+import dotenv from 'dotenv';
+import authRoutes from './routes/auth.js';
+import clientRoutes from './routes/clients.js';
+import serviceRoutes from './routes/services.js';
+import productRoutes from './routes/products.js';
+import proposalRoutes from './routes/proposals.js';
+import inventoryRoutes from './routes/inventory.js';
+import serviceRecordRoutes from './routes/serviceRecords.js';
+import userRoutes from './routes/users.js';
+import reportRoutes from './routes/reports.js';
+import errorHandler from './middleware/errorHandler.js';
 
-// Importar rotas
-const authRoutes = require('./routes/auth');
-const clientRoutes = require('./routes/clients');
-const serviceRoutes = require('./routes/services');
-const productRoutes = require('./routes/products');
-const proposalRoutes = require('./routes/proposals');
-const inventoryRoutes = require('./routes/inventory');
-const serviceRecordRoutes = require('./routes/serviceRecords');
-const userRoutes = require('./routes/users');
-const reportRoutes = require('./routes/reports');
-
-// Middleware de erro
-const errorHandler = require('./middleware/errorHandler');
+dotenv.config();
 
 const app = express();
 
@@ -44,7 +42,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Health check
-app.get('/health', (req, res) => {
+app.get('/health', (_req, res) => {
   res.status(200).json({
     status: 'OK',
     timestamp: new Date().toISOString(),
@@ -74,4 +72,4 @@ app.use('*', (req, res) => {
 // Middleware de tratamento de erros
 app.use(errorHandler);
 
-module.exports = app;
+export default app;
